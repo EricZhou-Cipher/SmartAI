@@ -169,7 +169,7 @@ ChainIntelAI 支持多种配置选项，可通过环境变量或配置文件进�
 
 - **项目维护者**: Eric Zhou
 - **GitHub**: [EricZhou-Cipher](https://github.com/EricZhou-Cipher)
-- **Email**: [your-email@example.com](mailto:your-email@example.com)
+- **Email**: [zhoueric115@gmail.com](mailto:zhoueric115@gmail.com)
 
 ---
 
