@@ -1,3 +1,217 @@
+# ChainIntelAI 后端服务
+
+本目录包含 ChainIntelAI 平台的后端服务代码，负责区块链事件处理、风险分析和通知功能。
+
+## 🏗️ 技术栈
+
+- **Node.js**: v16+
+- **TypeScript**: v4.5+
+- **MongoDB**: 主数据存储
+- **Redis**: 缓存和消息队列
+- **Jest**: 测试框架
+- **Ethers.js**: 区块链交互
+- **Express**: API 服务器
+
+## 📁 目录结构
+
+```
+backend/
+├── src/                # 源代码
+│   ├── analyzer/       # 风险分析引擎
+│   │   ├── RiskAnalyzer.ts
+│   │   ├── RiskPatternAnalyzer.ts
+│   │   ├── MLModel.ts
+│   │   ├── MEVDetector.ts
+│   │   └── TimeSeriesAnalyzer.ts
+│   ├── config/         # 配置管理
+│   │   ├── index.ts
+│   │   ├── chains.ts
+│   │   └── notifiers.ts
+│   ├── database/       # 数据库访问层
+│   │   ├── mongodb/
+│   │   ├── redis/
+│   │   └── dao/
+│   ├── monitoring/     # 监控系统
+│   │   ├── PipelineMonitor.ts
+│   │   └── metrics.ts
+│   ├── notifier/       # 通知系统
+│   │   ├── NotificationRouter.ts
+│   │   ├── SlackClient.ts
+│   │   ├── FeishuClient.ts
+│   │   └── DingTalkClient.ts
+│   ├── pipeline/       # 事件处理管道
+│   │   ├── EventNormalizer.ts
+│   │   ├── EventPipeline.ts
+│   │   ├── PipelineConfig.ts
+│   │   └── PipelineMonitor.ts
+│   ├── profiling/      # 地址画像系统
+│   │   ├── AddressProfiler.ts
+│   │   └── ProfileUpdater.ts
+│   ├── tests/          # 测试文件
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   └── pipeline/
+│   ├── types/          # 类型定义
+│   │   ├── events.ts
+│   │   ├── config.ts
+│   │   └── notification.ts
+│   └── utils/          # 工具函数
+│       ├── logger.ts
+│       ├── blockchain.ts
+│       └── helpers.ts
+├── docs/               # 文档
+├── hardhat/            # 智能合约开发环境
+└── jest.setup.js       # Jest 测试配置
+```
+
+## 🚀 开发指南
+
+### 环境设置
+
+1. 安装依赖：
+
+```bash
+cd backend
+yarn install
+```
+
+2. 配置环境变量：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件，填入必要的配置：
+
+```
+# 数据库配置
+MONGODB_URI=mongodb://localhost:27017/chainintelai
+REDIS_URL=redis://localhost:6379
+
+# 区块链节点
+ETH_RPC_URL=https://mainnet.infura.io/v3/YOUR_API_KEY
+BSC_RPC_URL=https://bsc-dataseed.binance.org/
+
+# 通知配置
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
+FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+DINGTALK_WEBHOOK_URL=https://oapi.dingtalk.com/robot/send?access_token=xxx
+
+# 日志配置
+LOG_LEVEL=info
+```
+
+### 开发模式
+
+启动开发服务器：
+
+```bash
+yarn dev
+```
+
+### 代码风格和质量
+
+运行代码检查：
+
+```bash
+yarn lint
+```
+
+自动修复代码风格问题：
+
+```bash
+yarn lint:fix
+```
+
+### 测试
+
+运行所有测试：
+
+```bash
+yarn test
+```
+
+运行特定测试：
+
+```bash
+yarn test src/tests/unit/eventNormalizer.test.ts
+```
+
+生成测试覆盖率报告：
+
+```bash
+yarn test:coverage
+```
+
+## 🔄 事件处理流程
+
+ChainIntelAI 的事件处理流程如下：
+
+1. **事件采集**：从区块链节点获取原始事件
+2. **事件标准化**：使用 `EventNormalizer` 将不同链的事件转换为统一格式
+3. **风险分析**：通过 `RiskAnalyzer` 评估事件风险
+4. **地址画像更新**：更新相关地址的行为画像
+5. **通知发送**：对高风险事件触发通知
+
+## 📊 风险分析模型
+
+风险分析引擎使用多种模型评估交易风险：
+
+- **模式识别**：基于已知风险模式的规则匹配
+- **机器学习**：使用训练好的模型预测风险分数
+- **时间序列分析**：检测异常的交易频率和金额
+- **MEV 检测**：识别 MEV 相关交易
+
+## 🔔 通知系统
+
+支持多种通知渠道：
+
+- **Slack**：通过 Webhook 发送通知
+- **飞书**：支持自定义卡片和交互式消息
+- **钉钉**：支持 Markdown 格式消息
+
+## 🧪 测试策略
+
+项目采用多层次测试策略：
+
+- **单元测试**：测试各个组件的独立功能
+- **集成测试**：测试组件之间的交互
+- **管道测试**：测试完整的事件处理流程
+
+## 📝 API 文档
+
+API 文档使用 Swagger 生成，可在开发环境中访问：
+
+```
+http://localhost:3000/api-docs
+```
+
+## 🔧 常见问题
+
+### 连接数据库失败
+
+检查 MongoDB 和 Redis 服务是否正在运行，以及连接 URL 是否正确。
+
+### 测试失败
+
+确保所有依赖都已安装，并且环境变量已正确配置。某些测试可能需要模拟外部服务。
+
+### 性能问题
+
+对于大量事件处理，可以调整以下配置：
+
+- 增加 Redis 缓存大小
+- 调整批处理大小
+- 优化数据库索引
+
+## 🤝 贡献
+
+欢迎提交 Pull Request 或创建 Issue 来改进项目。请确保遵循项目的代码风格和测试要求。
+
+## 📄 许可证
+
+MIT License
+
 # ChainIntelAI 事件回放工具
 
 这是一个用于回放和分析区块链历史事件的工具，支持 ERC20 Transfer 事件的回放、分析和通知。
@@ -57,12 +271,12 @@ node replayHistoricalEvents.js
 1. 创建 `docker-compose.yml` 文件：
 
 ```yaml
-version: "3"
+version: '3'
 services:
   mongodb:
     image: mongo:latest
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongodb_data:/data/db
     environment:
@@ -72,14 +286,14 @@ services:
   hardhat:
     build: ./hardhat
     ports:
-      - "8545:8545"
-    command: ["npx", "hardhat", "node"]
+      - '8545:8545'
+    command: ['npx', 'hardhat', 'node']
     depends_on:
       - mongodb
 
   replay:
     build: .
-    command: ["node", "replayHistoricalEvents.js"]
+    command: ['node', 'replayHistoricalEvents.js']
     environment:
       - MONGODB_URI=mongodb://admin:password@mongodb:27017/chainintel
       - ETH_NODE_WSS=ws://hardhat:8545

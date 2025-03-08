@@ -1,195 +1,101 @@
 # 贡献指南
 
-感谢您对 ChainIntelAI 项目的关注！本文档将指导您如何参与项目开发和贡献代码。
+感谢您对 ChainIntelAI 项目的关注！我们欢迎各种形式的贡献，包括但不限于代码贡献、文档改进、问题报告和功能建议。本指南将帮助您了解如何参与项目开发。
 
-## 开发环境设置
+## 行为准则
 
-### 必要条件
+参与本项目的所有贡献者都应遵循以下行为准则：
 
-- Node.js >= 16
-- TypeScript >= 4.5
-- Yarn >= 1.22
+- 尊重所有项目参与者，不论其经验水平、性别、性取向、残疾状况、外表、种族或宗教信仰
+- 使用包容性语言，避免冒犯性或排他性表达
+- 接受建设性批评，将重点放在改进代码和项目上
+- 以社区的最佳利益为出发点行事
 
-### 本地开发
+## 如何贡献
 
-1. 克隆仓库
+### 报告问题
 
-```bash
-git clone https://github.com/your-org/ChainIntelAI.git
-cd ChainIntelAI
-```
+如果您发现了 bug 或有功能建议，请通过 GitHub Issues 提交。提交问题时，请包含以下信息：
 
-2. 安装依赖
+1. 问题的简短描述
+2. 重现步骤（如适用）
+3. 预期行为与实际行为
+4. 环境信息（操作系统、Node.js 版本等）
+5. 相关的日志或截图
 
-```bash
-cd backend
-yarn install
-```
+### 提交代码
 
-3. 运行测试
-
-```bash
-yarn test
-```
-
-## 代码质量要求
-
-### TypeScript 规范
-
-- 启用严格模式 (`strict: true`)
-- 所有函数必须有类型声明
-- 避免使用 `any` 类型
-- 使用接口而不是类型别名
-
-### 测试要求
-
-1. 单元测试覆盖率要求：
-
-   - Statements: ≥ 85%
-   - Branches: ≥ 80%
-   - Functions: ≥ 85%
-   - Lines: ≥ 85%
-
-2. 测试用例规范：
-
-   - 描述清晰的测试名称
-   - 完整的输入输出验证
-   - 异常情况处理测试
-   - 边界条件测试
-
-3. 本地运行测试：
-
-```bash
-# 运行所有测试
-yarn test
-
-# 运行带覆盖率的测试
-yarn test --coverage
-
-# 运行特定测试文件
-yarn test path/to/test.test.ts
-```
-
-### 代码风格
-
-- 使用 ESLint 和 Prettier 进行代码格式化
-- 提交前运行 `yarn lint` 检查代码风格
-- 遵循项目现有的代码组织结构
-
-## 提交规范
-
-### 分支管理
-
-- `main`: 主分支，保持稳定
-- `feature/*`: 新功能开发
-- `fix/*`: Bug 修复
-- `docs/*`: 文档更新
-- `test/*`: 测试相关
-
-### Commit 消息格式
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-类型（type）：
-
-- feat: 新功能
-- fix: Bug 修复
-- docs: 文档更新
-- test: 测试相关
-- refactor: 代码重构
-- style: 代码格式
-- chore: 构建过程或辅助工具的变动
+1. Fork 项目仓库
+2. 创建您的特性分支：`git checkout -b feature/amazing-feature`
+3. 提交您的更改：`git commit -m 'Add some amazing feature'`
+4. 推送到分支：`git push origin feature/amazing-feature`
+5. 创建 Pull Request
 
 ### Pull Request 流程
 
-1. 创建功能分支
+1. 确保您的代码符合项目的代码风格
+2. 更新文档以反映您的更改（如适用）
+3. 添加或更新测试以覆盖您的更改
+4. 确保所有测试都能通过
+5. 提交 Pull Request 并填写相关信息
+
+## 开发环境设置
+
+请参考 [README.md](README.md) 中的开发指南部分，了解如何设置开发环境。
+
+## 代码风格
+
+本项目使用 ESLint 和 Prettier 来保持代码风格的一致性。在提交代码前，请确保运行以下命令：
 
 ```bash
-git checkout -b feature/your-feature
+yarn lint
 ```
 
-2. 开发并提交代码
+## 测试
+
+所有新功能和 bug 修复都应包含测试。请确保您的代码通过所有现有测试，并为新功能添加适当的测试。
+
+运行测试：
 
 ```bash
-git add .
-git commit -m "feat(scope): your changes"
+yarn test
 ```
 
-3. 推送到远程
+检查测试覆盖率：
 
 ```bash
-git push origin feature/your-feature
+yarn test:coverage
 ```
 
-4. 创建 Pull Request
+## 文档
 
-   - 填写清晰的标题和描述
-   - 关联相关 Issue
-   - 等待 CI 检查通过
-   - 请求代码审查
+如果您的更改影响了用户体验或 API，请更新相应的文档。文档位于 `docs/` 目录中。
 
-5. 合并要求
-   - 所有测试通过
-   - 覆盖率达标
-   - 至少一个审查者批准
-   - 无合并冲突
+## 分支策略
 
-## CI/CD 流程
+- `main`: 稳定版本分支，只接受经过充分测试的合并请求
+- `develop`: 开发分支，新功能和 bug 修复应基于此分支创建
+- `feature/*`: 特性分支，用于开发新功能
+- `bugfix/*`: 修复分支，用于修复 bug
+- `release/*`: 发布分支，用于准备新版本发布
 
-### 自动化测试
+## 版本控制
 
-每次 PR 和推送到主分支时会自动运行：
+本项目遵循 [语义化版本控制](https://semver.org/lang/zh-CN/) 规范。
 
-1. 安装依赖
-2. 运行所有测试
-3. 检查覆盖率
-4. 生成测试报告
+## 发布流程
 
-### 覆盖率报告
-
-1. 本地查看
-
-```bash
-yarn test --coverage
-open backend/tests/coverage/lcov-report/index.html
-```
-
-2. CI 中查看
-   - 访问 GitHub Actions
-   - 下载 Artifacts 中的覆盖率报告
-
-### 通知机制
-
-测试结果会通过以下渠道通知：
-
-- GitHub PR 状态更新
-- Slack 通知（如果配置）
-- 钉钉/飞书通知（如果配置）
-
-## 文档维护
-
-- 代码变更时更新相关文档
-- 保持 README.md 最新
-- 添加必要的注释和类型说明
-- 更新 API 文档（如果有）
-
-## 问题反馈
-
-- 使用 GitHub Issues 报告问题
-- 提供复现步骤和环境信息
-- 标记适当的标签
-- 关注问题的后续进展
+1. 从 `develop` 分支创建 `release/x.y.z` 分支
+2. 在发布分支上进行最终测试和修复
+3. 将发布分支合并到 `main` 分支
+4. 在 `main` 分支上创建版本标签
+5. 将 `main` 分支的更改合并回 `develop` 分支
 
 ## 联系方式
 
-- 技术讨论：GitHub Discussions
-- 即时通讯：Slack Channel
-- 邮件列表：dev@chainintel.ai
+如果您有任何问题或需要帮助，请通过以下方式联系我们：
+
+- GitHub Issues
+- 电子邮件：[your-email@example.com](mailto:your-email@example.com)
 
 感谢您的贡献！
