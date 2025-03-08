@@ -41,26 +41,26 @@ const DEFAULT_ADDRESS = '0x1234567890123456789012345678901234567890';
 export function createProfile(options: ProfileOptions = {}): AddressProfile {
   const now = Math.floor(Date.now() / 1000);
   const type = options.type || 'normal';
-  
+
   // 根据类型设置默认风险分数
   const defaultRiskScore = {
     normal: 0.2,
     blacklist: 0.9,
-    new: 0.5
+    new: 0.5,
   }[type];
 
   // 根据类型设置默认标签
   const defaultTags = {
     normal: ['active_trader'],
     blacklist: ['suspicious', 'high_risk'],
-    new: ['new_address']
+    new: ['new_address'],
   }[type];
 
   // 根据类型设置默认描述
   const defaultDescription = {
     normal: 'Regular trading address with stable activity pattern',
     blacklist: 'Address flagged for suspicious activity',
-    new: 'Newly created address with limited history'
+    new: 'Newly created address with limited history',
   }[type];
 
   const profile: AddressProfile = {
@@ -78,8 +78,8 @@ export function createProfile(options: ProfileOptions = {}): AddressProfile {
       category: options.metadata?.category || type,
       description: options.metadata?.description || defaultDescription,
       source: options.metadata?.source || 'mock_data',
-      lastUpdated: options.metadata?.lastUpdated || now
-    }
+      lastUpdated: options.metadata?.lastUpdated || now,
+    },
   };
 
   return profile;
@@ -87,33 +87,40 @@ export function createProfile(options: ProfileOptions = {}): AddressProfile {
 
 // 辅助函数：生成关联地址
 function generateAssociatedAddresses(count: number): string[] {
-  return Array.from({length: count}, () => 
-    `0x${Array.from({length: 40}, () => 
-      Math.floor(Math.random() * 16).toString(16)).join('')}`
+  return Array.from(
+    { length: count },
+    () =>
+      `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
   );
 }
 
 // 批量生成画像
 export class ProfileGenerator {
   generateProfiles(count: number, baseOptions: ProfileOptions = {}): AddressProfile[] {
-    return Array.from({length: count}, (_, index) => {
+    return Array.from({ length: count }, (_, index) => {
       const options = {
         ...baseOptions,
         address: `0x${(index + 1).toString(16).padStart(40, '0')}`,
-        associatedAddresses: generateAssociatedAddresses(Math.floor(Math.random() * 5))
+        associatedAddresses: generateAssociatedAddresses(Math.floor(Math.random() * 5)),
       };
       return createProfile(options);
     });
   }
 
-  generateProfileMap(addresses: string[], type: 'normal' | 'blacklist' | 'new'): Map<string, AddressProfile> {
+  generateProfileMap(
+    addresses: string[],
+    type: 'normal' | 'blacklist' | 'new'
+  ): Map<string, AddressProfile> {
     const profileMap = new Map<string, AddressProfile>();
-    addresses.forEach(address => {
-      profileMap.set(address.toLowerCase(), createProfile({
-        address,
-        type
-      }));
+    addresses.forEach((address) => {
+      profileMap.set(
+        address.toLowerCase(),
+        createProfile({
+          address,
+          type,
+        })
+      );
     });
     return profileMap;
   }
-} 
+}

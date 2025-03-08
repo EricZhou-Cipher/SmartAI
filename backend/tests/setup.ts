@@ -1,11 +1,21 @@
-import { register } from 'prom-client';
-import { Logger } from '../src/utils/logger.js';
-import { AppConfig } from '../src/config.js';
-import { RiskLevel } from '../src/types/events.js';
+/**
+ * @file 测试环境设置
+ * @description 配置Jest测试环境
+ */
 
-// 创建测试日志记录器
-class TestLogger implements Logger {
-  private traceId?: string;
+import { register } from 'prom-client';
+import { ILogger } from '../src/utils/logger';
+import { AppConfig } from '../src/config';
+import { RiskLevel } from '../src/types/events';
+import { jest, beforeAll, afterAll, beforeEach, expect } from '@jest/globals';
+import { Logger } from '../src/utils/logger';
+
+// 测试日志实现
+class TestLogger extends Logger {
+  constructor() {
+    super();
+    this.traceId = 'test-trace-id';
+  }
 
   info(message: string, meta?: Record<string, any>): void {
     console.log(`[INFO] ${message}`, meta);
@@ -30,66 +40,50 @@ class TestLogger implements Logger {
 
 export const testLogger = new TestLogger();
 
-// 创建测试配置
+// 测试配置
 export const testConfig: AppConfig = {
-  pipeline: {
-    riskAnalysis: {
-      minScore: 0,
-      maxScore: 1,
-      thresholds: {
-        [RiskLevel.LOW]: 0.3,
-        [RiskLevel.MEDIUM]: 0.5,
-        [RiskLevel.HIGH]: 0.7,
-        [RiskLevel.CRITICAL]: 0.9
-      }
-    },
-    eventProcessing: {
-      batchSize: 100,
-      maxConcurrent: 10,
-      timeout: 30000,
-      retryCount: 3,
-      retryDelay: 1000
-    },
-    notification: {
-      enabled: true,
-      channels: ['slack', 'dingtalk', 'feishu'],
-      minRiskLevel: RiskLevel.HIGH
-    },
-    monitoring: {
-      enabled: true,
-      metrics: ['risk_score', 'event_count', 'processing_time'],
-      alertThresholds: {
-        risk_score: 0.8,
-        event_count: 1000,
-        processing_time: 5000
-      }
-    }
+  app: {
+    name: 'ChainIntelAI',
+    version: '1.0.0',
+    environment: 'test',
   },
-  profiler: {
-    maxRetries: 3,
-    retryDelay: 1000,
-    backoff: 'EXPONENTIAL',
-    timeout: 30000,
-    batchSize: 100,
-    maxConcurrent: 10
-  },
-  database: {
-    url: 'mongodb://localhost:27017/chainintel_test',
-    options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    }
-  },
-  blockchain: {
-    rpcUrl: 'http://localhost:8545',
-    chainId: 1,
-    confirmations: 12
-  },
-  api: {
+  server: {
     port: 3000,
     host: 'localhost',
-    cors: true
-  }
+  },
+  database: {
+    host: 'localhost',
+    port: 27017,
+    username: 'test',
+    password: 'test',
+    database: 'chainintel_test',
+  },
+  redis: {
+    host: 'localhost',
+    port: 6379,
+    password: '',
+    db: 0,
+  },
+  monitoring: {
+    prometheus: {
+      enabled: true,
+      port: 9090,
+    },
+    logging: {
+      level: 'debug',
+      format: 'json',
+    },
+  },
+  riskAnalysis: {
+    thresholds: {
+      [RiskLevel.LOW]: 0.3,
+      [RiskLevel.MEDIUM]: 0.5,
+      [RiskLevel.HIGH]: 0.7,
+      [RiskLevel.CRITICAL]: 0.9,
+    },
+    minRiskLevel: RiskLevel.HIGH,
+    maxRiskLevel: RiskLevel.CRITICAL,
+  },
 };
 
 // 清理 Prometheus 指标
@@ -104,7 +98,7 @@ jest.setTimeout(30000);
 beforeAll(async () => {
   // 设置测试环境变量
   process.env.NODE_ENV = 'test';
-  
+
   // 设置测试日志
   testLogger.info('Starting test suite');
 });
@@ -117,7 +111,7 @@ afterAll(async () => {
 beforeEach(() => {
   // 重置测试状态
   jest.clearAllMocks();
-  
+
   // 设置新的 traceId
   testLogger.setTraceId(require('uuid').v4());
 });
@@ -151,16 +145,14 @@ expect.extend({
     const pass = received >= floor && received <= ceiling;
     if (pass) {
       return {
-        message: () =>
-          `expected ${received} not to be within range ${floor} - ${ceiling}`,
+        message: () => `expected ${received} not to be within range ${floor} - ${ceiling}`,
         pass: true,
       };
     } else {
       return {
-        message: () =>
-          `expected ${received} to be within range ${floor} - ${ceiling}`,
+        message: () => `expected ${received} to be within range ${floor} - ${ceiling}`,
         pass: false,
       };
     }
   },
-}); 
+});

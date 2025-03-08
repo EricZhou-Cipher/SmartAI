@@ -1,52 +1,33 @@
-import { ProfilerConfig } from '../types/config.js';
-import { Logger } from '../utils/logger.js';
-import { AddressProfile } from '../types/profile.js';
+import { createLogger } from '../utils/logger';
+import { AddressProfile, AddressCategory } from '../types/profile';
 
-export class AddressProfiler {
-  private config: ProfilerConfig;
-  private logger: Logger;
+const logger = createLogger({
+  level: 'info',
+  format: 'json',
+  timestampFormat: 'YYYY-MM-DD HH:mm:ss',
+});
 
-  constructor(config: ProfilerConfig, logger: Logger) {
-    this.config = config;
-    this.logger = logger;
-  }
-
-  async profileAddress(address: string): Promise<AddressProfile> {
+export const addressProfiler = {
+  async getProfile(address: string): Promise<AddressProfile> {
     try {
-      // 实现地址画像逻辑
+      // TODO: 从数据库或缓存中获取地址画像
+      // 这里使用模拟数据
+      const now = new Date().toISOString();
       return {
         address,
-        type: 'normal',
         riskScore: 0.5,
-        lastUpdated: new Date()
+        lastUpdated: now,
+        tags: ['normal'],
+        category: AddressCategory.WALLET,
+        transactionCount: 10,
+        totalValue: '1000',
+        firstSeen: now,
+        lastSeen: now,
+        relatedAddresses: [],
       };
     } catch (error) {
-      this.logger.error('Failed to profile address', { address, error });
+      logger.error('获取地址画像失败', { address, error });
       throw error;
     }
-  }
-
-  async retryWithBackoff<T>(
-    operation: () => Promise<T>,
-    maxAttempts: number = 3,
-    initialDelay: number = 1000
-  ): Promise<T> {
-    let attempt = 0;
-    let delay = initialDelay;
-
-    while (attempt < maxAttempts) {
-      try {
-        return await operation();
-      } catch (error) {
-        attempt++;
-        if (attempt === maxAttempts) {
-          throw error;
-        }
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; // 指数退避
-      }
-    }
-
-    throw new Error('Max attempts reached');
-  }
-} 
+  },
+};

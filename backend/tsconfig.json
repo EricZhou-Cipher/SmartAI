@@ -1,40 +1,26 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2020",
     "module": "CommonJS",
-    "moduleResolution": "Node",
-    "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
     "outDir": "dist",
     "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "sourceMap": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     },
-    "typeRoots": ["./node_modules/@types", "./src/types", "./types"],
+    "types": ["node", "jest"],
     "allowJs": true,
-    "checkJs": false,
-    "types": ["node"]
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "sourceMap": true
   },
-  "include": [
-    "src/**/*",
-    "tests/**/*",
-    "pipeline/**/*",
-    "analyzer/**/*",
-    "profiling/**/*",
-    "config/**/*",
-    "utils/**/*",
-    "types/**/*",
-    "notifier/**/*",
-    "monitoring/**/*",
-    "queue/**/*",
-    "scheduler/**/*"
-  ],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "**/*.js"]
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

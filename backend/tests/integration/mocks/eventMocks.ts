@@ -24,7 +24,7 @@ const DEFAULT_ADDRESS = '0x1234567890123456789012345678901234567890';
 export function createTransferEvent(options: TransferEventOptions = {}): NormalizedEvent {
   const timestamp = options.timestamp || Math.floor(Date.now() / 1000);
   const txHash = `0x${Math.random().toString(16).substring(2)}`.padEnd(66, '0');
-  
+
   return {
     traceId: `trace_${txHash}`,
     type: EventType.TRANSFER,
@@ -43,8 +43,8 @@ export function createTransferEvent(options: TransferEventOptions = {}): Normali
     metadata: {
       nonce: options.nonce || 0,
       gasPrice: options.gasPrice || parseUnits('20', 9).toString(),
-      gasLimit: options.gasLimit || '21000'
-    }
+      gasLimit: options.gasLimit || '21000',
+    },
   };
 }
 
@@ -54,7 +54,7 @@ export function createContractCallEvent(options: ContractCallEventOptions = {}):
   const contractAddress = options.contractAddress || DEFAULT_ADDRESS;
   const methodName = options.methodName || 'transfer';
   const methodId = options.methodId || '0xa9059cbb';
-  
+
   return {
     traceId: `trace_${txHash}`,
     type: EventType.CONTRACT_CALL,
@@ -69,26 +69,29 @@ export function createContractCallEvent(options: ContractCallEventOptions = {}):
     value: options.value || '0',
     methodName,
     methodSignature: `${methodName}(address,uint256)`,
-    input: methodId + (options.parameters || []).map(p => p.toString().padStart(64, '0')).join(''),
+    input:
+      methodId + (options.parameters || []).map((p) => p.toString().padStart(64, '0')).join(''),
     metadata: {
       nonce: options.nonce || 0,
       gasPrice: options.gasPrice || parseUnits('20', 9).toString(),
       gasLimit: options.gasLimit || '150000',
-      parameters: options.parameters || []
-    }
+      parameters: options.parameters || [],
+    },
   };
 }
 
 // 辅助函数：生成随机地址
 export function generateRandomAddress(): string {
-  return `0x${Array.from({length: 40}, () => 
-    Math.floor(Math.random() * 16).toString(16)).join('')}`;
+  return `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join(
+    ''
+  )}`;
 }
 
 // 辅助函数：生成随机哈希
 export function generateRandomHash(): string {
-  return `0x${Array.from({length: 64}, () => 
-    Math.floor(Math.random() * 16).toString(16)).join('')}`;
+  return `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(
+    ''
+  )}`;
 }
 
 // 测试数据生成器
@@ -101,26 +104,29 @@ export class EventGenerator {
   }
 
   generateTransferBatch(count: number, baseOptions: TransferEventOptions = {}): NormalizedEvent[] {
-    return Array.from({length: count}, () => {
+    return Array.from({ length: count }, () => {
       const options = {
         ...baseOptions,
         chainId: this.chainId,
         nonce: this.currentNonce++,
-        timestamp: Math.floor(Date.now() / 1000) - Math.floor(Math.random() * 3600)
+        timestamp: Math.floor(Date.now() / 1000) - Math.floor(Math.random() * 3600),
       };
       return createTransferEvent(options);
     });
   }
 
-  generateContractCallBatch(count: number, baseOptions: ContractCallEventOptions = {}): NormalizedEvent[] {
-    return Array.from({length: count}, () => {
+  generateContractCallBatch(
+    count: number,
+    baseOptions: ContractCallEventOptions = {}
+  ): NormalizedEvent[] {
+    return Array.from({ length: count }, () => {
       const options = {
         ...baseOptions,
         chainId: this.chainId,
         nonce: this.currentNonce++,
-        timestamp: Math.floor(Date.now() / 1000) - Math.floor(Math.random() * 3600)
+        timestamp: Math.floor(Date.now() / 1000) - Math.floor(Math.random() * 3600),
       };
       return createContractCallEvent(options);
     });
   }
-} 
+}

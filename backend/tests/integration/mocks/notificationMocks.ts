@@ -25,11 +25,11 @@ class NotificationStore {
   }
 
   getNotificationsByChannel(channel: string): NotificationContent[] {
-    return this.notifications.filter(n => n.channel === channel);
+    return this.notifications.filter((n) => n.channel === channel);
   }
 
   getNotificationsByRiskLevel(riskLevel: string): NotificationContent[] {
-    return this.notifications.filter(n => n.metadata.riskLevel === riskLevel);
+    return this.notifications.filter((n) => n.metadata.riskLevel === riskLevel);
   }
 
   clear(): void {
@@ -44,7 +44,7 @@ class NotificationStore {
     const channelCounts: Record<string, number> = {};
     const riskLevelCounts: Record<string, number> = {};
 
-    this.notifications.forEach(notification => {
+    this.notifications.forEach((notification) => {
       channelCounts[notification.channel] = (channelCounts[notification.channel] || 0) + 1;
       riskLevelCounts[notification.metadata.riskLevel] =
         (riskLevelCounts[notification.metadata.riskLevel] || 0) + 1;
@@ -53,7 +53,7 @@ class NotificationStore {
     return {
       totalCount: this.notifications.length,
       channelCounts,
-      riskLevelCounts
+      riskLevelCounts,
     };
   }
 }
@@ -66,9 +66,14 @@ export function mockSendNotification(
   analysis: RiskAnalysisResult,
   traceId?: string
 ): void {
-  const riskLevel = analysis.score >= 0.9 ? 'CRITICAL' :
-    analysis.score >= 0.7 ? 'HIGH' :
-      analysis.score >= 0.4 ? 'MEDIUM' : 'LOW';
+  const riskLevel =
+    analysis.score >= 0.9
+      ? 'CRITICAL'
+      : analysis.score >= 0.7
+        ? 'HIGH'
+        : analysis.score >= 0.4
+          ? 'MEDIUM'
+          : 'LOW';
 
   const content = formatNotificationContent(channel, event, analysis);
 
@@ -80,8 +85,8 @@ export function mockSendNotification(
       eventId: event.transactionHash,
       riskScore: analysis.score,
       riskLevel,
-      traceId
-    }
+      traceId,
+    },
   });
 }
 
@@ -102,9 +107,14 @@ function formatNotificationContent(
   event: NormalizedEvent,
   analysis: RiskAnalysisResult
 ): string {
-  const riskLevel = analysis.score >= 0.9 ? 'CRITICAL' :
-    analysis.score >= 0.7 ? 'HIGH' :
-      analysis.score >= 0.4 ? 'MEDIUM' : 'LOW';
+  const riskLevel =
+    analysis.score >= 0.9
+      ? 'CRITICAL'
+      : analysis.score >= 0.7
+        ? 'HIGH'
+        : analysis.score >= 0.4
+          ? 'MEDIUM'
+          : 'LOW';
 
   switch (channel) {
     case 'dingtalk':
@@ -121,13 +131,15 @@ function formatSlackMessage(
   analysis: RiskAnalysisResult,
   riskLevel: string
 ): string {
-  return `*Risk Alert - ${riskLevel}*\n` +
+  return (
+    `*Risk Alert - ${riskLevel}*\n` +
     `Transaction: ${event.transactionHash}\n` +
     `From: ${event.from}\n` +
     `To: ${event.to}\n` +
     `Value: ${event.value}\n` +
     `Risk Score: ${analysis.score.toFixed(2)}\n` +
-    `Risk Factors:\n${analysis.factors.map((f: string) => `• ${f}`).join('\n')}`;
+    `Risk Factors:\n${analysis.factors.map((f: string) => `• ${f}`).join('\n')}`
+  );
 }
 
 function formatDingTalkMessage(
@@ -135,13 +147,15 @@ function formatDingTalkMessage(
   analysis: RiskAnalysisResult,
   riskLevel: string
 ): string {
-  return `## Risk Alert - ${riskLevel}\n` +
+  return (
+    `## Risk Alert - ${riskLevel}\n` +
     `**Transaction**: ${event.transactionHash}\n` +
     `**From**: ${event.from}\n` +
     `**To**: ${event.to}\n` +
     `**Value**: ${event.value}\n` +
     `**Risk Score**: ${analysis.score.toFixed(2)}\n` +
-    `**Risk Factors**:\n${analysis.factors.map((f: string) => `- ${f}`).join('\n')}`;
+    `**Risk Factors**:\n${analysis.factors.map((f: string) => `- ${f}`).join('\n')}`
+  );
 }
 
 function formatFeishuMessage(
@@ -154,14 +168,15 @@ function formatFeishuMessage(
     content: [
       {
         tag: 'text',
-        text: `Transaction: ${event.transactionHash}\n` +
+        text:
+          `Transaction: ${event.transactionHash}\n` +
           `From: ${event.from}\n` +
           `To: ${event.to}\n` +
           `Value: ${event.value}\n` +
           `Risk Score: ${analysis.score.toFixed(2)}\n` +
-          `Risk Factors:\n${analysis.factors.join('\n')}`
-      }
-    ]
+          `Risk Factors:\n${analysis.factors.join('\n')}`,
+      },
+    ],
   });
 }
 
@@ -170,11 +185,13 @@ function formatDefaultMessage(
   analysis: RiskAnalysisResult,
   riskLevel: string
 ): string {
-  return `Risk Alert - ${riskLevel}\n` +
+  return (
+    `Risk Alert - ${riskLevel}\n` +
     `Transaction: ${event.transactionHash}\n` +
     `From: ${event.from}\n` +
     `To: ${event.to}\n` +
     `Value: ${event.value}\n` +
     `Risk Score: ${analysis.score}\n` +
-    `Risk Factors: ${analysis.factors.join(', ')}`;
+    `Risk Factors: ${analysis.factors.join(', ')}`
+  );
 }

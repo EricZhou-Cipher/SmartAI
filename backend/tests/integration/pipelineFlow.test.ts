@@ -7,7 +7,12 @@ import { defaultConfig } from '../../pipeline/pipelineConfig';
 import { createTransferEvent, createContractCallEvent, EventGenerator } from './mocks/eventMocks';
 import { createProfile, ProfileGenerator } from './mocks/profileMocks';
 import { createRiskAnalysis, RiskAnalysisGenerator } from './mocks/aiMocks';
-import { mockSendNotification, getMockedNotifications, clearMockedNotifications, getNotificationStats } from './mocks/notificationMocks';
+import {
+  mockSendNotification,
+  getMockedNotifications,
+  clearMockedNotifications,
+  getNotificationStats,
+} from './mocks/notificationMocks';
 import { logger } from '../../utils/logger';
 
 jest.mock('../../pipeline/eventNormalizer');
@@ -43,13 +48,7 @@ describe('Pipeline Integration Tests', () => {
     notifier = new NotificationRouter() as jest.Mocked<NotificationRouter>;
 
     // 创建Pipeline实例
-    pipeline = new EventPipeline(
-      defaultConfig,
-      normalizer,
-      analyzer,
-      notifier,
-      monitor
-    );
+    pipeline = new EventPipeline(defaultConfig, normalizer, analyzer, notifier, monitor);
 
     // 配置日志Mock
     (logger.info as jest.Mock).mockImplementation(() => {});
@@ -60,17 +59,17 @@ describe('Pipeline Integration Tests', () => {
     it('should process transfer event successfully', async () => {
       // 准备测试数据
       const event = createTransferEvent({
-        value: '1000000000000000000000' // 1000 ETH
+        value: '1000000000000000000000', // 1000 ETH
       });
 
       const fromProfile = createProfile({
         address: event.from,
-        type: 'normal'
+        type: 'normal',
       });
 
       const toProfile = createProfile({
         address: event.to,
-        type: 'new'
+        type: 'new',
       });
 
       const riskAnalysis = createRiskAnalysis(event, fromProfile, toProfile);
@@ -79,7 +78,7 @@ describe('Pipeline Integration Tests', () => {
       normalizer.normalizeEvent.mockResolvedValue(event);
       analyzer.analyze.mockResolvedValue(riskAnalysis);
       notifier.route.mockImplementation(async ({ event, riskAnalysis, channels, traceId }) => {
-        channels.forEach(channel => {
+        channels.forEach((channel) => {
           mockSendNotification(channel, event, riskAnalysis, traceId);
         });
       });
@@ -107,17 +106,17 @@ describe('Pipeline Integration Tests', () => {
       // 准备测试数据
       const event = createContractCallEvent({
         methodName: 'transfer',
-        parameters: ['0x1234', '1000000000000000000']
+        parameters: ['0x1234', '1000000000000000000'],
       });
 
       const fromProfile = createProfile({
         address: event.from,
-        type: 'blacklist'
+        type: 'blacklist',
       });
 
       const toProfile = createProfile({
         address: event.to,
-        type: 'normal'
+        type: 'normal',
       });
 
       const riskAnalysis = createRiskAnalysis(event, fromProfile, toProfile);
@@ -126,7 +125,7 @@ describe('Pipeline Integration Tests', () => {
       normalizer.normalizeEvent.mockResolvedValue(event);
       analyzer.analyze.mockResolvedValue(riskAnalysis);
       notifier.route.mockImplementation(async ({ event, riskAnalysis, channels, traceId }) => {
-        channels.forEach(channel => {
+        channels.forEach((channel) => {
           mockSendNotification(channel, event, riskAnalysis, traceId);
         });
       });
@@ -154,36 +153,36 @@ describe('Pipeline Integration Tests', () => {
       // 生成测试数据
       const events = eventGenerator.generateTransferBatch(5);
       const profileMap = profileGenerator.generateProfileMap(
-        events.map(e => e.from),
+        events.map((e) => e.from),
         'normal'
       );
 
       // 配置Mock行为
-      events.forEach(event => {
+      events.forEach((event) => {
         normalizer.normalizeEvent.mockResolvedValueOnce(event);
       });
 
       const analyses = riskAnalysisGenerator.generateAnalyses(events, profileMap);
-      analyses.forEach(analysis => {
+      analyses.forEach((analysis) => {
         analyzer.analyze.mockResolvedValueOnce(analysis);
       });
 
       notifier.route.mockImplementation(async ({ event, riskAnalysis, channels, traceId }) => {
-        channels.forEach(channel => {
+        channels.forEach((channel) => {
           mockSendNotification(channel, event, riskAnalysis, traceId);
         });
       });
 
       // 执行测试
-      await Promise.all(events.map(event => pipeline.processEvent(event.rawEvent)));
+      await Promise.all(events.map((event) => pipeline.processEvent(event.rawEvent)));
 
       // 验证处理结果
       expect(normalizer.normalizeEvent).toHaveBeenCalledTimes(events.length);
       expect(analyzer.analyze).toHaveBeenCalledTimes(events.length);
-      
+
       const notifications = getMockedNotifications();
       const stats = getNotificationStats();
-      
+
       expect(stats.totalCount).toBeGreaterThan(0);
       expect(Object.keys(stats.channelCounts).length).toBeGreaterThan(0);
       expect(Object.keys(stats.riskLevelCounts).length).toBeGreaterThan(0);
@@ -210,14 +209,14 @@ describe('Pipeline Integration Tests', () => {
       // 准备测试数据
       const event = createTransferEvent();
       const riskAnalysis = createRiskAnalysis(event, null, null, {
-        score: 0.95 // Critical risk
+        score: 0.95, // Critical risk
       });
 
       // 配置Mock行为
       normalizer.normalizeEvent.mockResolvedValue(event);
       analyzer.analyze.mockResolvedValue(riskAnalysis);
       notifier.route.mockImplementation(async ({ event, riskAnalysis, channels, traceId }) => {
-        channels.forEach(channel => {
+        channels.forEach((channel) => {
           mockSendNotification(channel, event, riskAnalysis, traceId);
         });
       });
@@ -228,7 +227,7 @@ describe('Pipeline Integration Tests', () => {
       // 验证通知配置
       const notifications = getMockedNotifications();
       const stats = getNotificationStats();
-      
+
       expect(stats.riskLevelCounts['CRITICAL']).toBe(1);
       expect(notifications[0].channel).toBe('slack'); // 默认配置中的关键风险通知渠道
     });
@@ -249,7 +248,7 @@ describe('Pipeline Integration Tests', () => {
 
       // 验证监控指标
       const metrics = await monitor.getMetrics();
-      
+
       // 验证必要的指标存在
       expect(metrics).toContain('pipeline_events_total');
       expect(metrics).toContain('pipeline_processing_time_seconds');
@@ -261,4 +260,4 @@ describe('Pipeline Integration Tests', () => {
       expect(processingTime).toBeGreaterThan(0);
     });
   });
-}); 
+});
