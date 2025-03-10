@@ -11,7 +11,9 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/tests/**'],
-  coverageDirectory: 'src/tests/coverage',
-  coverageReporters: ['json', 'lcov', 'text', 'clover'],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['json', 'lcov', 'text', 'clover', 'json-summary'],
   testMatch: ['**/?(*.)+(spec|test).ts?(x)'],
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node']
 };

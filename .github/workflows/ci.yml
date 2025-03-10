@@ -25,9 +25,7 @@ jobs:
         with:
           node-version: "18"
           cache: "yarn"
-
-      - name: Install root dependencies
-        run: yarn install --frozen-lockfile
+          cache-dependency-path: backend/yarn.lock
 
       - name: Install backend dependencies
         working-directory: ./backend
@@ -35,7 +33,7 @@ jobs:
 
       - name: Run tests with coverage
         working-directory: ./backend
-        run: yarn test:coverage
+        run: yarn test:ci
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v3
