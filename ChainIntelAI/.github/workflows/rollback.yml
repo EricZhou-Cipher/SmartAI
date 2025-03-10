@@ -1,0 +1,165 @@
+name: 自动回滚
+on:
+  repository_dispatch:
+    types: [rollback]
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # 获取完整历史以便回滚
+
+      - name: 获取回滚信息
+        id: rollback-info
+        run: |
+          echo "trigger=${{ github.event.client_payload.trigger }}" >> $GITHUB_OUTPUT
+          echo "p95_latency=${{ github.event.client_payload.p95Latency }}" >> $GITHUB_OUTPUT
+          echo "error_rate=${{ github.event.client_payload.errorRate }}" >> $GITHUB_OUTPUT
+          echo "timestamp=${{ github.event.client_payload.timestamp }}" >> $GITHUB_OUTPUT
+
+      - name: 创建回滚分支
+        id: create-branch
+        run: |
+          ROLLBACK_BRANCH="rollback-$(date +%s)"
+          git checkout -b $ROLLBACK_BRANCH
+          echo "branch=$ROLLBACK_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: 回滚到上一个稳定版本
+        run: |
+          # 获取最近的提交
+          COMMITS=$(git log --pretty=format:"%H %s" -n 10)
+
+          # 查找最近的稳定版本（标记为[stable]的提交）
+          STABLE_COMMIT=""
+          while IFS= read -r line; do
+            COMMIT=$(echo $line | cut -d' ' -f1)
+            MESSAGE=$(echo $line | cut -d' ' -f2-)
+            
+            if [[ "$MESSAGE" == *"[stable]"* ]]; then
+              STABLE_COMMIT=$COMMIT
+              break
+            fi
+          done <<< "$COMMITS"
+
+          # 如果找到稳定版本，回滚到该版本
+          if [ -n "$STABLE_COMMIT" ]; then
+            echo "找到稳定版本: $STABLE_COMMIT"
+            git reset --hard $STABLE_COMMIT
+          else
+            # 否则，回滚到上一个提交
+            echo "未找到稳定版本，回滚到上一个提交"
+            git reset --hard HEAD~1
+          fi
+
+      - name: 推送回滚分支
+        run: |
+          git push origin ${{ steps.create-branch.outputs.branch }}
+
+      - name: 创建回滚PR
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "🔄 自动回滚 - 性能恶化"
+          body: |
+            # 自动回滚
+
+            由于检测到性能严重恶化，系统自动触发了回滚操作。
+
+            ## 回滚信息
+
+            - **触发原因**: ${{ steps.rollback-info.outputs.trigger }}
+            - **P95延迟**: ${{ steps.rollback-info.outputs.p95_latency }} ms
+            - **错误率**: ${{ steps.rollback-info.outputs.error_rate }}%
+            - **时间**: ${{ steps.rollback-info.outputs.timestamp }}
+
+            请审核此PR并合并以完成回滚，或者关闭此PR并手动解决性能问题。
+          branch: ${{ steps.create-branch.outputs.branch }}
+          base: main
+          labels: "rollback,performance"
+
+      - name: Slack通知
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+          custom_payload: |
+            {
+              "attachments": [
+                {
+                  "color": "danger",
+                  "title": "🔄 自动回滚已触发",
+                  "fields": [
+                    {
+                      "title": "触发原因",
+                      "value": "${{ steps.rollback-info.outputs.trigger }}",
+                      "short": true
+                    },
+                    {
+                      "title": "P95延迟",
+                      "value": "${{ steps.rollback-info.outputs.p95_latency }} ms",
+                      "short": true
+                    },
+                    {
+                      "title": "错误率",
+                      "value": "${{ steps.rollback-info.outputs.error_rate }}%",
+                      "short": true
+                    },
+                    {
+                      "title": "回滚分支",
+                      "value": "${{ steps.create-branch.outputs.branch }}",
+                      "short": true
+                    }
+                  ],
+                  "footer": "ChainIntelAI 自动回滚系统",
+                  "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                  "ts": ${{ github.event.client_payload.timestamp ? github.event.client_payload.timestamp : github.event.repository.updated_at }}
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-rollback:
+    needs: rollback
+    runs-on: ubuntu-latest
+    if: ${{ github.event.client_payload.trigger == 'critical' }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ needs.rollback.outputs.branch }}
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: "yarn"
+
+      - name: 安装依赖
+        run: |
+          cd backend
+          yarn install --frozen-lockfile
+
+      - name: 构建应用
+        run: |
+          cd backend
+          yarn build
+
+      - name: 部署回滚版本
+        run: |
+          cd backend
+          # 这里可以添加部署命令，例如：
+          # - 复制文件到服务器
+          # - 重启服务
+          # - 更新Kubernetes部署
+          echo "部署回滚版本..."
+
+          # 示例：如果使用SSH部署
+          # scp -r dist/* user@server:/path/to/app
+
+          # 示例：如果使用Kubernetes
+          # kubectl apply -f k8s/deployment.yaml
