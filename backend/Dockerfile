@@ -1,19 +1,16 @@
-FROM node:20
+FROM node:18-alpine
+
+# 安装 yarn
+RUN apk add --no-cache yarn
 
 WORKDIR /app
 
-# 安装依赖
 COPY package.json yarn.lock ./
-RUN yarn install
 
-# 复制源代码
+RUN yarn install --production
+
 COPY . .
 
-# 创建日志目录
-RUN mkdir -p logs
+EXPOSE 5000
 
-# 设置环境变量
-ENV NODE_ENV=production
-
-# 启动命令
-CMD ["node", "replayHistoricalEvents.js"] 
+CMD ["node", "src/server.js"] 
