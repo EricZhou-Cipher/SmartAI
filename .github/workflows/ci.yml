@@ -8,6 +8,7 @@ on:
 
 env:
   NODE_ENV: test
+  CI: true
   COVERAGE_THRESHOLD_STATEMENTS: 50
   COVERAGE_THRESHOLD_BRANCHES: 30
   COVERAGE_THRESHOLD_FUNCTIONS: 45
@@ -19,6 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,11 +32,15 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: ./backend
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --network-timeout 300000
 
       - name: Run tests with coverage
         working-directory: ./backend
         run: yarn test:ci
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test_secret
+          MONGO_URI: mongodb://localhost:27017/chainintelai_test
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
