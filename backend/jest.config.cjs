@@ -14,7 +14,7 @@ module.exports = {
       statements: 30,
     },
   },
-  setupFilesAfterEnv: ['./jest.setup.js'],
+  setupFilesAfterEnv: ['./jest.setup.cjs'],
   testTimeout: 30000,
   transformIgnorePatterns: ['node_modules/(?!(axios|uuid|winston)/)'],
   testEnvironmentOptions: {
