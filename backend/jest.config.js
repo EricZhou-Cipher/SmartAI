@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   testEnvironment: 'node',
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.config.js' }],
