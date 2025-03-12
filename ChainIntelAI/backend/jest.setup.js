@@ -12,8 +12,8 @@ process.on('unhandledRejection', (error) => {
 });
 
 // 环境变量设置
-process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test_secret';
+process.env.NODE_ENV = process.env.NODE_ENV || 'test';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
 process.env.MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chainintelai_test';
 process.env.REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 process.env.REDIS_PORT = process.env.REDIS_PORT || '6379';
@@ -189,13 +189,26 @@ jest.mock('ethers', () => {
   };
 });
 
-// 为测试准备清理
+// 全局模拟设置
+global.console = {
+  ...console,
+  // 保持测试输出干净
+  log: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  // 但保留警告和错误以便调试
+  warn: console.warn,
+  error: console.error,
+};
+
+// 在测试之前进行清理
 beforeAll(() => {
-  // 在所有测试开始前执行
+  // 在这里可以添加全局的 beforeAll 钩子
 });
 
 afterAll(() => {
-  // 在所有测试结束后执行
+  // 在这里可以添加全局的 afterAll 钩子
+  // 例如关闭数据库连接等
 });
 
 // 测试间清理

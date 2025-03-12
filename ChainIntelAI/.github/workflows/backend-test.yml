@@ -58,23 +58,71 @@ jobs:
           fi
           yarn install --frozen-lockfile
 
-      - name: 显式安装Babel插件和相关依赖
+      - name: 全局安装Babel插件
+        run: |
+          npm install -g @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 @babel/cli@7.24.0 @babel/plugin-transform-runtime@7.24.0 @babel/plugin-proposal-class-properties@7.18.6 @babel/plugin-proposal-object-rest-spread@7.20.7
+
+      - name: 在项目中安装Babel插件
         run: |
           yarn add --dev @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 @babel/cli@7.24.0 @babel/plugin-transform-runtime@7.24.0 @babel/plugin-proposal-class-properties@7.18.6 @babel/plugin-proposal-object-rest-spread@7.20.7 --exact
 
       - name: 检查Babel插件安装情况
         run: |
           echo "检查babel插件安装路径和版本:"
-          ls -la node_modules/@babel/plugin-transform-modules-commonjs
-          yarn why @babel/plugin-transform-modules-commonjs
-          node -e "console.log('Babel插件已安装:', require.resolve('@babel/plugin-transform-modules-commonjs'))"
+          ls -la node_modules/@babel/plugin-transform-modules-commonjs || echo "目录不存在"
+          yarn why @babel/plugin-transform-modules-commonjs || echo "包不可见"
+          npm list -g @babel/plugin-transform-modules-commonjs || echo "全局包不可见"
+          npm list @babel/plugin-transform-modules-commonjs || echo "本地包不可见"
+          which babel || echo "babel命令不可用"
+          node -e "try { console.log('Babel插件已安装:', require.resolve('@babel/plugin-transform-modules-commonjs')); } catch(e) { console.error('无法解析Babel插件:', e.message); }"
+
+      # 验证babel.config.cjs是否存在并创建一个简单的版本
+      - name: 确保Babel配置正确
+        run: |
+          echo "确保Babel配置存在并正确"
+          cat > babel.config.cjs << EOL
+          module.exports = {
+            presets: [
+              ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
+              '@babel/preset-typescript'
+            ],
+            plugins: [
+              '@babel/plugin-transform-modules-commonjs',
+              '@babel/plugin-transform-runtime',
+              '@babel/plugin-proposal-class-properties',
+              '@babel/plugin-proposal-object-rest-spread'
+            ]
+          };
+          EOL
+          cat babel.config.cjs
 
       # 更新Jest配置
       - name: 更新Jest配置
         run: |
           echo "更新Jest配置以解决依赖转换问题"
-          sed -i 's|/node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise)/)|/node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|@babel/plugin-transform-modules-commonjs|prom-client)/)|g' jest.config.cjs
-          sed -i '/ignore: \["node_modules"\]/d' babel.config.cjs
+          cat > jest.config.cjs << EOL
+          module.exports = {
+            testEnvironment: 'node',
+            transform: {
+              '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.config.cjs' }],
+            },
+            moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
+            testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
+            coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
+            transformIgnorePatterns: [
+              '/node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|@babel/plugin-transform-modules-commonjs|prom-client)/)',
+            ],
+            setupFilesAfterEnv: ['./jest.setup.js'],
+            testTimeout: 30000,
+            verbose: true,
+            forceExit: true,
+            detectOpenHandles: true,
+            moduleNameMapper: {
+              '^@/(.*)$': '<rootDir>/src/$1'
+            },
+          };
+          EOL
+          cat jest.config.cjs
 
       # 检查是否有测试源文件
       - name: 检查测试文件
@@ -82,24 +130,13 @@ jobs:
           find tests -name "*.test.js" -o -name "*.test.ts" | sort
           find src -name "*.test.js" -o -name "*.test.ts" | sort
 
-      # 检查配置文件是否存在
-      - name: 检查配置文件
-        run: |
-          ls -la jest.config.cjs
-          ls -la babel.config.cjs
-          ls -la jest.setup.js
-          echo "Jest配置内容:"
-          cat jest.config.cjs
-          echo "Babel配置内容:"
-          cat babel.config.cjs
-
       # 先运行一个特定测试看看是否成功
       - name: 运行单个测试
         run: |
           TEST_FILE=$(find src/tests/unit/profiling -name "*.test.js" -o -name "*.test.ts" | head -1)
           if [ -n "$TEST_FILE" ]; then
             echo "尝试运行单个测试: $TEST_FILE"
-            NODE_OPTIONS=--max-old-space-size=4096 yarn jest --no-cache --runInBand --verbose --config=jest.config.cjs $TEST_FILE
+            NODE_OPTIONS=--max-old-space-size=4096 npx jest --no-cache --runInBand --verbose --config=jest.config.cjs $TEST_FILE
           else
             echo "未找到测试文件"
           fi
@@ -112,7 +149,7 @@ jobs:
           BABEL_ENV: test
 
       - name: 运行测试
-        run: NODE_OPTIONS=--max-old-space-size=4096 yarn jest --no-cache --runInBand --verbose --config=jest.config.cjs
+        run: NODE_OPTIONS=--max-old-space-size=4096 npx jest --no-cache --runInBand --verbose --config=jest.config.cjs
         env:
           CI: true
           NODE_ENV: test
