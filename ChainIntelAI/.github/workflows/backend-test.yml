@@ -27,7 +27,7 @@ jobs:
           --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
 
       # Redis服务
       redis:
@@ -38,7 +38,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
 
     steps:
       - name: 检出代码
@@ -57,7 +57,9 @@ jobs:
         run: |
           node -v
           yarn -v
+          echo "::group::环境变量"
           env | sort
+          echo "::endgroup::"
 
       - name: 清理缓存
         run: |
@@ -74,13 +76,53 @@ jobs:
           echo "安装项目依赖..."
           yarn install --immutable
 
-          # 显示安装的依赖
-          yarn list --depth=0
-
-      - name: 运行基本测试
+      - name: 检查关键依赖
         run: |
-          echo "运行基本测试..."
-          NODE_ENV=test yarn jest --testMatch="**/src/tests/unit/{basic,utils,calculator,asyncUtils}.test.js" --config=minimal-jest.config.js
+          echo "::group::检查@babel/plugin-transform-modules-commonjs"
+          yarn list @babel/plugin-transform-modules-commonjs
+          echo "::endgroup::"
+
+          echo "::group::检查babel-jest"
+          yarn list babel-jest
+          echo "::endgroup::"
+
+          echo "::group::检查@babel/core"
+          yarn list @babel/core
+          echo "::endgroup::"
+
+          echo "::group::所有安装的依赖"
+          yarn list --depth=0
+          echo "::endgroup::"
+
+      - name: 检查Babel配置
+        run: |
+          echo "::group::Babel配置文件内容"
+          cat babel.config.js
+          echo "::endgroup::"
+
+          echo "::group::Jest配置文件内容"
+          cat jest.config.js
+          echo "::endgroup::"
+
+          echo "::group::Jest设置文件内容"
+          cat jest.setup.js
+          echo "::endgroup::"
+
+      - name: 等待数据库服务启动
+        run: |
+          echo "等待MongoDB和Redis服务完全启动..."
+          sleep 5
+
+      - name: 运行基本测试（无缓存）
+        run: |
+          echo "运行基本测试（无缓存）..."
+          # 使用tee和grep过滤输出，只显示错误信息
+          NODE_ENV=test yarn jest --testMatch="**/src/tests/unit/{basic,utils,calculator,asyncUtils}.test.js" --config=minimal-jest.config.js --no-cache 2>&1 | tee test-output.log
+
+          # 高亮显示错误信息
+          echo "::group::测试错误信息"
+          grep -E "Error:|FAIL |Failed|Cannot find module|SyntaxError|TypeError|ReferenceError" test-output.log || echo "没有发现错误"
+          echo "::endgroup::"
 
       - name: 创建覆盖率报告
         run: |
@@ -93,3 +135,10 @@ jobs:
         with:
           name: coverage-report
           path: backend/coverage/
+
+      - name: 上传测试日志
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-logs
+          path: backend/test-output.log
