@@ -6,7 +6,13 @@
 module.exports = {
   testEnvironment: 'node',
   transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': [
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: './tsconfig.json',
+      },
+    ],
+    '^.+\\.jsx?$': [
       'babel-jest',
       {
         configFile: './babel.config.js',
