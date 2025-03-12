@@ -22,9 +22,9 @@ module.exports = {
   moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
-  // 确保处理关键模块
+  // 关键配置：确保@babel/plugin-transform-modules-commonjs不被忽略
   transformIgnorePatterns: [
-    'node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|prom-client)/)',
+    '/node_modules/(?!(@babel|@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|prom-client)/)',
   ],
   // 添加额外设置以确保正确收集覆盖率
   collectCoverage: true,
