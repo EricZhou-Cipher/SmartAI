@@ -1,10 +1,53 @@
 /**
- * Jest 设置文件
- * 用于配置测试环境
+ * Jest全局设置文件
+ * 用于设置测试环境和全局配置
  */
 
-// 设置超时时间
+console.log('Jest设置文件加载中...');
+
+// 设置测试超时时间
 jest.setTimeout(30000);
+
+// 设置环境变量
+process.env.NODE_ENV = 'test';
+
+// 尝试预先加载关键依赖
+try {
+  // 预加载Babel插件模块，确保它在测试运行前可用
+  const resolver = require('./babel-resolver');
+
+  // 尝试预加载关键Babel模块
+  Object.keys(resolver.moduleMap).forEach((moduleName) => {
+    try {
+      const modulePath = resolver.resolveModule(moduleName);
+      console.log(`✅ 预加载模块: ${moduleName} 从 ${modulePath}`);
+      require(modulePath);
+    } catch (err) {
+      console.warn(`⚠️ 无法预加载模块: ${moduleName}`, err.message);
+      // 使用debugModulePaths查找可能的路径
+      const possiblePath = resolver.debugModulePaths(moduleName);
+      if (possiblePath) {
+        console.log(`🔍 找到模块的可能路径: ${possiblePath}`);
+        try {
+          require(possiblePath);
+          console.log(`✅ 成功从${possiblePath}加载${moduleName}`);
+        } catch (loadErr) {
+          console.warn(`⚠️ 从发现的路径加载失败: ${loadErr.message}`);
+        }
+      }
+    }
+  });
+
+  // 特别确保@babel/plugin-transform-modules-commonjs已加载
+  try {
+    const plugin = require('@babel/plugin-transform-modules-commonjs');
+    console.log('✅ 直接加载模块成功: @babel/plugin-transform-modules-commonjs');
+  } catch (err) {
+    console.warn('⚠️ 直接加载@babel/plugin-transform-modules-commonjs失败:', err.message);
+  }
+} catch (err) {
+  console.warn('加载babel-resolver期间出错:', err.message);
+}
 
 // 处理未捕获的Promise错误
 process.on('unhandledRejection', (error) => {
@@ -12,7 +55,6 @@ process.on('unhandledRejection', (error) => {
 });
 
 // 环境变量设置
-process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
 process.env.MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chainintelai_test';
 process.env.REDIS_HOST = process.env.REDIS_HOST || 'localhost';
