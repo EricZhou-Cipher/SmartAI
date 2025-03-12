@@ -194,10 +194,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 // 导出函数以便测试
-export {
-  getLowCoverageFiles,
-  generateTestFile,
-  generateTestsForFile,
-  generateTestsForDirectory,
-  main,
-};
+export { getLowCoverageFiles, generateTestsForDirectory, main };

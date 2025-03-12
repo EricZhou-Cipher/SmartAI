@@ -3,7 +3,12 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
     '^.+\\.jsx?$': [
       'babel-jest',
       {
@@ -20,8 +25,9 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.{ts,tsx,js,jsx}', '!src/**/*.d.ts', '!src/tests/**'],
   coverageDirectory: 'coverage',
   coverageReporters: ['json', 'lcov', 'text', 'clover'],
-  testMatch: ['**/?(*.)+(spec|test).{js,jsx,ts,tsx}'],
-  transformIgnorePatterns: ['node_modules/(?!(@babel)/)'],
+  transformIgnorePatterns: [
+    '/node_modules/(?!(jest-runner|@babel|uuid|ethers|@openzeppelin|@slack|telegraf|ts-retry-promise|ioredis|redis|mongoose|axios|zod)/)',
+  ],
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   testTimeout: 30000,
   verbose: true,
@@ -30,4 +36,5 @@ module.exports = {
   testEnvironmentOptions: {
     url: 'http://localhost',
   },
+  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
 };
