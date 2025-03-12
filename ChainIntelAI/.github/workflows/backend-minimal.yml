@@ -1,4 +1,4 @@
-name: Backend CI/CD Minimal
+name: Backend CI/CD Minimal - 极简测试
 
 on:
   push:
@@ -19,119 +19,74 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16.x
-          # 禁用缓存以避免使用旧的Babel缓存
           cache: false
 
-      - name: 显示环境信息
+      - name: 极简环境准备
         run: |
-          node -v
-          yarn -v
-          ls -la
-          pwd
-          echo "GitHub Actions环境信息："
-          env | grep -E "GITHUB|NODE|PATH|RUNNER"
-
-      - name: 干净安装
-        run: |
-          echo "完全清理环境..."
+          # 清理所有可能的干扰项
           rm -rf node_modules package-lock.json yarn.lock
+          rm -rf jest.config.js babel.config.js tsconfig.json
           rm -rf .yarn .yarnrc .npmrc
-          rm -rf jest.config.js babel.config.js .babelrc .babelrc.js
-          rm -rf coverage .nyc_output
 
-          echo "使用npm安装依赖（绕过yarn缓存）..."
-          npm install
+          # 展示干净的环境
+          ls -la
 
-          echo "安装最基本的测试依赖，不包含任何Babel相关内容..."
-          npm install --save-dev jest ts-jest @types/jest typescript @types/node
-
-          echo "显示已安装的依赖版本："
-          npm list | grep -E "jest|typescript|@types|babel"
-
-      - name: 创建简化的Jest配置
+      - name: 创建独立测试
         run: |
-          cat > jest.config.js << 'EOF'
-          module.exports = {
-            preset: 'ts-jest',
-            testEnvironment: 'node',
-            collectCoverage: false,
-            // 显式禁用所有转换器，使用最基本的JS执行模式
-            transform: {},
-            // 不转换任何文件，直接运行
-            transformIgnorePatterns: [
-              "/node_modules/",
-              "\\.pnp\\.[^\\/]+$",
-              "/src/"
-            ],
-            // 只包含最基本的JS测试文件
-            testMatch: ["**/src/tests/unit/minimal.test.js"],
-            // 禁用所有模块映射
-            moduleNameMapper: {}
-          };
-          EOF
-          echo "创建的jest.config.js内容："
-          cat jest.config.js
+          # 创建一个不依赖任何测试框架的简单测试文件
+          echo 'console.log("开始独立测试"); const sum = (a, b) => a + b; if(sum(1, 1) === 2) { console.log("✅ 测试通过"); process.exit(0); } else { console.log("❌ 测试失败"); process.exit(1); }' > pure-test.js
 
-      - name: 创建非常简单的测试文件
+          # 运行独立测试
+          node pure-test.js
+
+          # 创建一个具有Babel环境的最小测试
+          mkdir -p minimal-test
+          cd minimal-test
+
+          # 创建package.json
+          echo '{"name":"minimal-test","version":"1.0.0","private":true}' > package.json
+
+          # 安装最小依赖集合
+          npm init -y
+          npm install --save-dev jest babel-jest @babel/core @babel/preset-env
+
+          # 创建babel.config.js
+          echo 'module.exports = { presets: ["@babel/preset-env"] };' > babel.config.js
+
+          # 创建最简jest配置
+          echo 'module.exports = { testEnvironment: "node", transform: { "^.+\\.js$": "babel-jest" } };' > jest.config.js
+
+          # 创建测试文件
+          echo 'test("1+1=2", () => { expect(1+1).toBe(2); });' > simple.test.js
+
+          # 运行测试
+          npx jest --no-cache
+
+      - name: 验证Babel配置
         run: |
-          # 创建测试目录
-          mkdir -p src/tests/unit
+          cd minimal-test
 
-          # 创建最简单的测试文件（纯JS，不需要任何转换）
-          echo 'test("最简单的测试", () => { expect(1 + 1).toBe(2); });' > src/tests/unit/minimal.test.js
+          # 安装所有必要的Babel依赖
+          npm install --save-dev @babel/plugin-transform-modules-commonjs
 
-          # 显示文件内容
-          echo "测试文件内容："
-          cat src/tests/unit/minimal.test.js
+          # 确认Babel插件已安装
+          echo "Babel插件安装状态："
+          npm list @babel/plugin-transform-modules-commonjs
 
-      - name: 使用Node直接运行测试
+          # 创建明确依赖该插件的配置
+          echo 'module.exports = { presets: ["@babel/preset-env"], plugins: ["@babel/plugin-transform-modules-commonjs"] };' > babel.config.js
+
+          # 创建使用ESM语法的测试文件
+          echo 'import { expect, test } from "@jest/globals"; test("ESM语法测试", () => { expect(1+1).toBe(2); });' > esm.test.js
+
+          # 运行ESM测试
+          npx jest esm.test.js --no-cache
+
+      - name: 直接检查模块路径
         run: |
-          echo "绕过Jest，直接使用Node运行简单测试..."
-          cat > src/tests/unit/direct.js << 'EOF'
-          console.log("开始直接测试");
+          # 在最小化环境中执行Node脚本，检查模块路径解析
+          cd minimal-test
+          echo 'try { console.log("模块路径:", require.resolve("@babel/plugin-transform-modules-commonjs")); } catch(e) { console.error("无法解析模块路径:", e.message); process.exit(1); }' > check-module.js
 
-          // 简单的断言函数
-          function expect(actual) {
-            return {
-              toBe: (expected) => {
-                if (actual !== expected) {
-                  throw new Error(`Expected ${expected} but got ${actual}`);
-                }
-                console.log(`✓ 测试通过: ${actual} === ${expected}`);
-                return true;
-              }
-            };
-          }
-
-          // 测试1+1=2
-          try {
-            expect(1 + 1).toBe(2);
-            console.log("所有测试通过！");
-            process.exit(0);
-          } catch (error) {
-            console.error("测试失败:", error.message);
-            process.exit(1);
-          }
-          EOF
-
-          # 运行直接测试
-          node src/tests/unit/direct.js
-
-      - name: 运行最简单的Jest测试
-        run: |
-          echo "使用最简单的方式运行Jest..."
-          NODE_OPTIONS="--max-old-space-size=4096 --no-warnings" npx jest src/tests/unit/minimal.test.js --no-cache --no-coverage
-        env:
-          NODE_ENV: test
-
-      - name: 显示Node.js模块解析路径
-        run: |
-          echo "显示Node.js模块解析路径..."
-          node -e "console.log('模块搜索路径:', module.paths)"
-          echo "显示已加载的模块："
-          node -e "console.log('已加载模块:', Object.keys(process.binding('natives')).join(', '))"
-
-      - name: 启用SSH调试
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
+          # 运行检查
+          node check-module.js
