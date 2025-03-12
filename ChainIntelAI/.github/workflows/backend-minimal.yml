@@ -37,7 +37,7 @@ jobs:
           yarn list jest @babel/core babel-jest @babel/plugin-transform-modules-commonjs
 
           echo "升级Jest相关依赖到最新版本："
-          yarn add --dev jest@latest @babel/core@latest babel-jest@latest @babel/preset-env@latest @babel/preset-typescript@latest @babel/plugin-transform-modules-commonjs@latest @babel/runtime@latest @babel/plugin-transform-runtime@latest
+          yarn add --dev jest@latest @babel/core@latest babel-jest@latest @babel/preset-env@latest @babel/preset-typescript@latest @babel/plugin-transform-modules-commonjs@latest @babel/runtime@latest @babel/plugin-transform-runtime@latest @babel/cli@latest
 
           echo "升级后的版本："
           yarn list jest @babel/core babel-jest @babel/plugin-transform-modules-commonjs
@@ -53,9 +53,11 @@ jobs:
       - name: 创建完整的Babel配置
         run: |
           cat > babel.config.js << 'EOF'
+          console.log('Babel配置被加载，当前目录:', __dirname);
+
           module.exports = {
             presets: [
-              ['@babel/preset-env', { targets: { node: 'current' } }],
+              ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
               '@babel/preset-typescript'
             ],
             plugins: [
@@ -71,6 +73,10 @@ jobs:
       - name: 创建完整的Jest配置
         run: |
           cat > jest.config.js << 'EOF'
+          console.log('Jest配置被加载，当前目录:', __dirname);
+          console.log('Jest解析的Babel配置路径:', require.resolve('@babel/core', { paths: [__dirname] }));
+          console.log('Jest解析的Jest配置路径:', __filename);
+
           module.exports = {
             testEnvironment: 'node',
             transform: {
@@ -89,6 +95,30 @@ jobs:
           echo "Jest配置内容："
           cat jest.config.js
 
+      - name: 创建TypeScript配置
+        run: |
+          cat > tsconfig.json << 'EOF'
+          {
+            "compilerOptions": {
+              "target": "ES6",
+              "module": "CommonJS",
+              "moduleResolution": "node",
+              "esModuleInterop": true,
+              "strict": true,
+              "skipLibCheck": true,
+              "forceConsistentCasingInFileNames": true,
+              "outDir": "dist",
+              "declaration": true,
+              "sourceMap": true
+            },
+            "include": ["src/**/*"],
+            "exclude": ["node_modules", "dist"]
+          }
+          EOF
+
+          echo "TypeScript配置内容："
+          cat tsconfig.json
+
       - name: 创建简单测试文件
         run: |
           mkdir -p src/tests/unit
@@ -97,20 +127,42 @@ jobs:
           echo 'describe("基本JS测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > src/tests/unit/basic.test.js
 
           # TypeScript测试文件
-          echo 'describe("基本TS测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > src/tests/unit/basic.test.ts
+          cat > src/tests/unit/basic.test.ts << 'EOF'
+          // 基本TypeScript测试文件
+          describe("基本TS测试", () => { 
+            test("1+1=2", () => { 
+              expect(1+1).toBe(2); 
+            }); 
+          });
+          EOF
 
       - name: 显示package.json内容
         run: |
           echo "package.json内容："
           cat package.json
 
+      - name: 手动测试Babel编译
+        run: |
+          echo "手动测试Babel编译TypeScript文件..."
+          yarn babel src/tests/unit/basic.test.ts --out-file compiled.js --verbose
+
+          echo "编译结果："
+          cat compiled.js
+
+      - name: 运行Jest Debug模式
+        run: |
+          echo "运行Jest Debug模式..."
+          NODE_OPTIONS="--inspect-brk=0.0.0.0:9229" yarn jest src/tests/unit/basic.test.js --no-cache --verbose --debug || true
+
+          echo "Jest Debug模式完成"
+
       - name: 运行简单测试
         run: |
           echo "运行JavaScript测试..."
-          NODE_OPTIONS="--max-old-space-size=4096" yarn jest src/tests/unit/basic.test.js --no-cache
+          NODE_OPTIONS="--max-old-space-size=4096" yarn jest src/tests/unit/basic.test.js --no-cache --verbose
 
           echo "运行TypeScript测试..."
-          NODE_OPTIONS="--max-old-space-size=4096" yarn jest src/tests/unit/basic.test.ts --no-cache
+          NODE_OPTIONS="--max-old-space-size=4096" yarn jest src/tests/unit/basic.test.ts --no-cache --verbose
         env:
           NODE_ENV: test
           BABEL_ENV: test
@@ -135,3 +187,9 @@ jobs:
           node -e "try { console.log('@babel/core路径:', require.resolve('@babel/core')); } catch(e) { console.error('找不到@babel/core:', e.message); }"
           node -e "try { console.log('babel-jest路径:', require.resolve('babel-jest')); } catch(e) { console.error('找不到babel-jest:', e.message); }"
           node -e "try { console.log('@babel/plugin-transform-modules-commonjs路径:', require.resolve('@babel/plugin-transform-modules-commonjs')); } catch(e) { console.error('找不到@babel/plugin-transform-modules-commonjs:', e.message); }"
+
+      - name: Debug 运行环境
+        uses: mxschmitt/action-tmate@v3
+        if: failure()
+        with:
+          limit-access-to-actor: true
