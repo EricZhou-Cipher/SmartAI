@@ -15,58 +15,88 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v3
 
-      - name: 设置 Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20.18.3
-          cache: "yarn"
-          cache-dependency-path: backend/package.json
+      - name: 设置 Docker
+        uses: docker/setup-buildx-action@v2
 
       - name: 显示环境信息
         run: |
-          node -v
-          yarn -v
-          ls -la
-          pwd
           echo "GitHub Actions环境信息："
           env | grep -E "GITHUB|NODE|PATH|RUNNER"
+          echo "系统信息："
+          uname -a
+          cat /etc/os-release
 
-      - name: 直接运行Node.js脚本
+      - name: 使用Docker运行测试
         run: |
-          echo 'console.log("测试成功 - 纯Node.js运行正常");' > test.js
-          node test.js
+          # 创建一个简单的Dockerfile
+          cat > Dockerfile << 'EOF'
+          FROM node:20.18.3
 
-      - name: 使用Node.js运行简单测试
+          WORKDIR /app
+
+          # 安装yarn
+          RUN npm install -g yarn
+
+          # 创建测试文件
+          RUN echo 'console.log("Node.js运行正常");' > test.js
+          RUN echo 'const assert = require("assert"); assert.strictEqual(1+1, 2); console.log("断言测试通过");' > assert-test.js
+
+          # 创建Jest测试
+          RUN mkdir jest-test
+          WORKDIR /app/jest-test
+          RUN echo '{"name":"jest-test","version":"1.0.0","private":true}' > package.json
+          RUN yarn add jest --dev
+          RUN echo 'module.exports = { testEnvironment: "node" };' > jest.config.js
+          RUN echo 'describe("最小化测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > simple.test.js
+
+          # 运行命令
+          CMD node /app/test.js && \
+              node /app/assert-test.js && \
+              cd /app/jest-test && \
+              yarn jest simple.test.js --no-cache
+          EOF
+
+          # 构建并运行Docker镜像
+          docker build -t test-node-env .
+          docker run --rm test-node-env
+
+      - name: 使用Docker运行项目测试
         run: |
-          echo 'const assert = require("assert"); assert.strictEqual(1+1, 2); console.log("断言测试通过");' > assert-test.js
-          node assert-test.js
+          # 创建一个使用项目代码的Dockerfile
+          cat > Dockerfile.project << 'EOF'
+          FROM node:20.18.3
 
-      - name: 创建独立测试目录
+          WORKDIR /app
+
+          # 复制项目文件
+          COPY . .
+
+          # 安装yarn
+          RUN npm install -g yarn
+
+          # 安装依赖
+          RUN yarn install
+
+          # 创建最小化测试
+          RUN echo 'module.exports = { testEnvironment: "node" };' > minimal.jest.config.js
+          RUN echo 'describe("项目内最小化测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > minimal.test.js
+
+          # 运行测试
+          CMD yarn jest minimal.test.js --config=minimal.jest.config.js --no-cache
+          EOF
+
+          # 构建并运行Docker镜像
+          docker build -t test-project-env -f Dockerfile.project .
+          docker run --rm test-project-env
+
+      - name: 显示项目结构和依赖
         run: |
-          # 创建一个全新的目录，避免与现有项目冲突
-          mkdir -p ~/jest-test
-          cd ~/jest-test
+          echo "项目结构："
+          find . -type f -name "*.json" | xargs ls -la
 
-          # 使用yarn初始化项目
-          echo '{"name":"jest-test","version":"1.0.0","private":true}' > package.json
+          echo "package.json内容："
+          cat package.json
 
-          # 使用yarn安装Jest
-          yarn add jest --dev
-
-          # 创建最简单的Jest配置
-          echo 'module.exports = { testEnvironment: "node" };' > jest.config.js
-
-          # 创建最简单的测试文件
-          echo 'describe("最小化测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > simple.test.js
-
-          # 使用yarn运行Jest
-          yarn jest simple.test.js --no-cache
-
-      - name: 尝试在项目中使用最小化Jest
-        run: |
-          # 在项目目录中创建最小化测试
-          echo 'module.exports = { testEnvironment: "node" };' > minimal.jest.config.js
-          echo 'describe("项目内最小化测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > minimal.test.js
-
-          # 使用yarn运行Jest，但不使用项目的配置
-          yarn jest minimal.test.js --config=minimal.jest.config.js --no-cache
+          echo "依赖相关文件："
+          find . -name "node_modules" -type d | xargs ls -la 2>/dev/null || echo "没有找到node_modules"
+          find . -name "yarn.lock" -type f | xargs ls -la 2>/dev/null || echo "没有找到yarn.lock"
