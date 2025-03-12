@@ -1,0 +1,89 @@
+name: ChainIntelAI CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cache_key: ${{ steps.cache_key.outputs.value }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # 获取完整历史以便检测变更
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: "yarn"
+
+      - name: 生成缓存键
+        id: cache_key
+        run: |
+          echo "value=node-modules-${{ hashFiles('**/yarn.lock') }}" >> $GITHUB_OUTPUT
+
+      - name: 缓存依赖
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: |
+            **/node_modules
+            ~/.cache/yarn
+          key: ${{ steps.cache_key.outputs.value }}
+          restore-keys: |
+            node-modules-
+
+  backend-test:
+    needs: setup
+    uses: ./.github/workflows/backend-test.yml
+
+  hardhat-test:
+    needs: setup
+    uses: ./.github/workflows/hardhat-test.yml
+
+  build:
+    needs: [backend-test, hardhat-test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: "yarn"
+
+      - name: 恢复缓存
+        uses: actions/cache@v3
+        with:
+          path: |
+            **/node_modules
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.cache_key }}
+
+      - name: 构建后端
+        run: |
+          cd backend
+          yarn build
+
+      - name: 构建前端
+        run: |
+          cd frontend
+          yarn build
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            backend/dist
+            frontend/build
