@@ -19,13 +19,15 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
 
       - name: 安装依赖
+        working-directory: ./backend
         run: yarn install --frozen-lockfile
 
-      - name: 运行单元测试
-        run: yarn test:unit
+      - name: 运行测试
+        working-directory: ./backend
+        run: yarn test
         env:
           NODE_ENV: test

@@ -19,13 +19,15 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
 
       - name: 安装依赖
+        working-directory: ./backend
         run: yarn install --frozen-lockfile
 
       - name: 运行代码检查
+        working-directory: ./backend
         run: yarn lint
 
   build:
@@ -40,13 +42,15 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
 
       - name: 安装依赖
+        working-directory: ./backend
         run: yarn install --frozen-lockfile
 
       - name: 构建项目
+        working-directory: ./backend
         run: yarn build
 
   unit-test:
@@ -61,15 +65,32 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
 
       - name: 安装依赖
+        working-directory: ./backend
         run: yarn install --frozen-lockfile
 
-      - name: 运行单元测试
+      - name: 检查配置文件
+        working-directory: ./backend
         run: |
-          yarn test:telemetry:ci
+          ls -la
+          if [ ! -f babel.config.js ]; then
+            echo "babel.config.js 不存在，创建它"
+            echo "module.exports = {
+              presets: [['@babel/preset-env', { targets: { node: 'current' } }], '@babel/preset-typescript'],
+              plugins: ['@babel/plugin-transform-modules-commonjs'],
+            };" > babel.config.js
+          fi
+          cat babel.config.js
+          cat jest.config.cjs
+          yarn list @babel/plugin-transform-modules-commonjs
+
+      - name: 运行单元测试
+        working-directory: ./backend
+        run: |
+          NODE_ENV=test yarn jest --config=jest.config.cjs
         env:
           NODE_ENV: test
 
@@ -77,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: unit-test-report
-          path: coverage/
+          path: backend/coverage/
 
   integration-test:
     name: 集成测试
@@ -112,15 +133,17 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
 
       - name: 安装依赖
+        working-directory: ./backend
         run: yarn install --frozen-lockfile
 
       - name: 运行集成测试
+        working-directory: ./backend
         run: |
-          yarn test:integration
+          NODE_ENV=test yarn jest --testMatch="**/tests/integration/**/*.test.ts" --config=jest.config.cjs --forceExit
         env:
           NODE_ENV: test
           MONGODB_URI: mongodb://localhost:27017/chainIntelAI_test
@@ -131,7 +154,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: integration-test-report
-          path: coverage/
+          path: backend/coverage/
 
   performance-test:
     name: 性能测试
@@ -146,15 +169,17 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
 
       - name: 安装依赖
+        working-directory: ./backend
         run: yarn install --frozen-lockfile
 
       - name: 运行性能测试
+        working-directory: ./backend
         run: |
-          yarn jest src/tests/performance/monitoring/telemetry-performance.test.ts --config=jest.config.cjs
+          NODE_ENV=test yarn jest src/tests/performance/monitoring/telemetry-performance.test.ts --config=jest.config.cjs
         env:
           NODE_ENV: test
 
@@ -162,7 +187,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: performance-test-report
-          path: coverage/
+          path: backend/coverage/
 
   deploy:
     name: 部署
@@ -177,13 +202,15 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'yarn'
 
       - name: 安装依赖
+        working-directory: ./backend
         run: yarn install --frozen-lockfile
 
       - name: 构建项目
+        working-directory: ./backend
         run: yarn build
 
       - name: 部署到开发环境

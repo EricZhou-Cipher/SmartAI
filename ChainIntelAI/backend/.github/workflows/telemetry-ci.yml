@@ -1,0 +1,75 @@
+name: OpenTelemetry 测试
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/src/monitoring/**'
+      - 'backend/src/tests/**/*telemetry*.test.ts'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/src/monitoring/**'
+      - 'backend/src/tests/**/*telemetry*.test.ts'
+  workflow_dispatch:
+
+jobs:
+  telemetry-test:
+    name: OpenTelemetry 测试
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: 'backend/yarn.lock'
+
+      - name: 安装依赖
+        working-directory: ./backend
+        run: |
+          yarn install --frozen-lockfile
+          yarn add --dev @babel/plugin-transform-modules-commonjs
+
+      - name: 检查配置文件
+        working-directory: ./backend
+        run: |
+          ls -la
+          echo "检查 babel.config.js"
+          if [ ! -f babel.config.js ]; then
+            echo "babel.config.js 不存在，创建它"
+            echo 'module.exports = {
+              presets: [
+                ["@babel/preset-env", { targets: { node: "current" } }],
+                "@babel/preset-typescript",
+              ],
+              plugins: [
+                "@babel/plugin-transform-modules-commonjs",
+                "@babel/plugin-proposal-class-properties",
+                "@babel/plugin-proposal-object-rest-spread",
+                "@babel/plugin-transform-runtime"
+              ],
+            };' > babel.config.js
+          fi
+          cat babel.config.js
+          echo "检查 jest.config.cjs"
+          cat jest.config.cjs
+
+      - name: 运行 OpenTelemetry 测试
+        working-directory: ./backend
+        run: |
+          NODE_ENV=test yarn jest --testMatch="**/tests/**/*telemetry*.test.ts" --config=jest.config.cjs --verbose
+        env:
+          NODE_ENV: test
+          DEBUG: 'true'
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: telemetry-test-report
+          path: backend/coverage/
