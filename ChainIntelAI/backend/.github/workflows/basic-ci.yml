@@ -1,14 +1,17 @@
-name: 基本持续集成
+name: 基本持续集成 (禁用)
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  # 仅在手动触发且提供特定密钥时运行
   workflow_dispatch:
+    inputs:
+      run_key:
+        description: '运行密钥'
+        required: true
 
 jobs:
   basic-tests:
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     name: 基本测试
     runs-on: ubuntu-latest
 

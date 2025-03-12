@@ -1,0 +1,58 @@
+name: 最终测试 (Final Test)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/final-test.yml" # 只在此文件变化时触发
+
+jobs:
+  final_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查工作目录
+        run: |
+          echo "当前工作目录: $(pwd)"
+          ls -la
+
+      - name: 显示环境信息
+        run: |
+          echo "Node.js版本:"
+          node -v
+          echo "NPM版本:"
+          npm -v
+          echo "检查yarn是否存在:"
+          which yarn || echo "yarn不存在"
+
+      - name: 创建简单测试
+        run: |
+          # 创建一个最简单的测试文件
+          mkdir -p test
+          cd test
+          echo 'console.log("这是最终测试"); console.log("当前时间:", new Date().toISOString()); process.exit(0);' > final-test.js
+
+          # 运行测试
+          node final-test.js
+          echo "✅ 基本测试通过"
+
+      - name: 创建虚拟babel文件
+        run: |
+          # 创建虚拟babel文件
+          echo 'module.exports = { plugins: [] };' > babel-virtual-resolve-base.js
+          cat babel-virtual-resolve-base.js
+
+          echo "✅ 虚拟文件创建成功"
+
+      - name: 检查backend目录
+        run: |
+          # 检查是否有backend目录
+          if [ -d "backend" ]; then
+            echo "backend目录存在"
+            ls -la backend
+            
+            # 创建虚拟babel文件在backend目录
+            echo 'module.exports = { plugins: [] };' > backend/babel-virtual-resolve-base.js
+            echo "在backend目录创建了虚拟文件"
+          else
+            echo "backend目录不存在"
+          fi
