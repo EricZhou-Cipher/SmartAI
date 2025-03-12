@@ -6,22 +6,10 @@
 module.exports = {
   testEnvironment: 'node',
   transform: {
-    '^.+\\.tsx?$': [
+    '^.+\\.(ts|tsx|js|jsx)$': [
       'ts-jest',
       {
         tsconfig: './tsconfig.json',
-      },
-    ],
-    '^.+\\.jsx?$': [
-      'babel-jest',
-      {
-        configFile: './babel.config.js',
-        // 确保babel-jest转换所有文件
-        caller: {
-          supportsDynamicImport: false,
-          supportsStaticESM: false,
-          supportsTopLevelAwait: false,
-        },
       },
     ],
   },
@@ -51,10 +39,6 @@ module.exports = {
   },
   // 添加setup文件
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  // 添加模块目录，确保能找到@babel/plugin-transform-modules-commonjs
+  // 添加模块目录
   modulePaths: ['<rootDir>/node_modules'],
-  // 添加模块名称映射
-  moduleNameMapper: {
-    '^@babel/plugin-transform-modules-commonjs$': '<rootDir>/node_modules/@babel/plugin-transform-modules-commonjs',
-  },
 };

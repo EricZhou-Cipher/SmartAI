@@ -73,8 +73,7 @@ jobs:
             preset: 'ts-jest',
             testEnvironment: 'node',
             transform: {
-              '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
-              '^.+\\.jsx?$': ['babel-jest', { configFile: './babel.config.js' }]
+              '^.+\\.(ts|tsx|js|jsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
             },
             transformIgnorePatterns: [],
             moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
@@ -86,18 +85,6 @@ jobs:
           EOF
           echo "创建的jest.config.js内容："
           cat jest.config.js
-
-      - name: 创建babel.config.js
-        run: |
-          cat > babel.config.js << 'EOF'
-          module.exports = {
-            presets: [
-              ['@babel/preset-env', { targets: { node: 'current' } }]
-            ]
-          };
-          EOF
-          echo "创建的babel.config.js内容："
-          cat babel.config.js
 
       - name: 创建测试文件
         run: |
