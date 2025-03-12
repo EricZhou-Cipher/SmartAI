@@ -53,26 +53,53 @@ jobs:
           cache: "npm"
           cache-dependency-path: backend/package.json
 
-      - name: 清理环境
+      - name: 完全清理环境
         run: |
-          echo "清理环境..."
+          echo "完全清理环境..."
           rm -rf node_modules package-lock.json yarn.lock
           rm -rf coverage .nyc_output
-          rm -f babel.config.cjs jest.config.cjs
-          # 确保删除可能导致问题的文件
+          rm -f babel.config.js babel.config.cjs .babelrc jest.config.js jest.config.cjs jest.setup.js
           rm -f babel-virtual-resolve-base.js babel-resolver.js
+
+      - name: 创建最简单的Babel配置
+        run: |
+          echo "创建最简单的Babel配置..."
+          echo '{
+            "presets": [
+              ["@babel/preset-env", { "targets": { "node": "current" } }],
+              "@babel/preset-typescript"
+            ],
+            "plugins": ["@babel/plugin-transform-modules-commonjs"]
+          }' > .babelrc
+
+      - name: 创建最简单的Jest配置
+        run: |
+          echo "创建最简单的Jest配置..."
+          echo 'module.exports = {
+            testEnvironment: "node",
+            transform: {
+              "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
+            },
+            transformIgnorePatterns: [
+              "/node_modules/(?!(@babel)/)"
+            ]
+          };' > jest.config.js
 
       - name: 安装依赖
         run: |
           echo "安装项目依赖..."
-          npm ci
+          npm install --no-audit --no-fund
 
           # 显示安装的依赖
           npm list --depth=0
 
-      - name: 验证Babel插件
+      - name: 直接安装关键依赖
         run: |
-          echo "验证Babel插件..."
+          echo "直接安装关键依赖..."
+          npm install --save-dev @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/preset-typescript@7.23.3 babel-jest@29.7.0
+          npm install --save-dev @babel/plugin-transform-modules-commonjs@7.26.3
+
+          # 验证安装
           npm list @babel/plugin-transform-modules-commonjs
 
           # 确认模块可以被加载
