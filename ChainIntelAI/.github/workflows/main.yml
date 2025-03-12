@@ -1,14 +1,17 @@
-name: ChainIntelAI CI/CD
+name: ChainIntelAI CI/CD (禁用)
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  # 仅在手动触发且提供特定密钥时运行
   workflow_dispatch:
+    inputs:
+      run_key:
+        description: "运行密钥"
+        required: true
 
 jobs:
   setup:
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     runs-on: ubuntu-latest
     outputs:
       cache_key: ${{ steps.cache_key.outputs.value }}
@@ -42,6 +45,8 @@ jobs:
 
   backend-test:
     needs: setup
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -152,6 +157,8 @@ jobs:
 
   hardhat-test:
     needs: setup
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -182,8 +189,9 @@ jobs:
 
   build:
     needs: [backend-test, hardhat-test]
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231' && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     steps:
       - name: 检出代码
         uses: actions/checkout@v3

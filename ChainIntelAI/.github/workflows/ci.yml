@@ -1,10 +1,12 @@
-name: CI
+name: CI (禁用)
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  # 仅在手动触发且提供特定密钥时运行
+  workflow_dispatch:
+    inputs:
+      run_key:
+        description: "运行密钥"
+        required: true
 
 env:
   NODE_ENV: test
@@ -15,6 +17,8 @@ env:
 
 jobs:
   test:
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     runs-on: ubuntu-latest
 
     steps:

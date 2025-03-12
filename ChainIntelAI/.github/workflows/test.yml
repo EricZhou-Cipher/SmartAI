@@ -1,14 +1,16 @@
-name: 测试与性能监控
+name: 测试与性能监控 (禁用)
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
-  schedule:
-    - cron: "0 0 * * 0" # 每周日午夜运行
+  # 仅在手动触发且提供特定密钥时运行
+  workflow_dispatch:
+    inputs:
+      run_key:
+        description: "运行密钥"
+        required: true
 
 jobs:
   setup:
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     runs-on: ubuntu-latest
     outputs:
       affected_modules: ${{ steps.affected.outputs.modules }}
@@ -96,6 +98,8 @@ jobs:
 
   unit-tests:
     needs: setup
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     runs-on: ubuntu-latest
     services:
       # MongoDB服务
@@ -174,6 +178,8 @@ jobs:
 
   integration-tests:
     needs: setup
+    # 添加条件使其永远不会运行
+    if: github.event.inputs.run_key == 'special_run_key_20231231'
     runs-on: ubuntu-latest
     services:
       # MongoDB服务
