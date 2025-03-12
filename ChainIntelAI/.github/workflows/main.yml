@@ -42,11 +42,107 @@ jobs:
 
   backend-test:
     needs: setup
-    uses: ./.github/workflows/backend-test.yml
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      # MongoDB服务
+      mongodb:
+        image: mongo:4.4
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Redis服务
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: "yarn"
+          cache-dependency-path: backend/yarn.lock
+
+      - name: 删除node_modules（如果存在）
+        run: |
+          if [ -d "node_modules" ]; then
+            rm -rf node_modules
+          fi
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 安装Babel插件
+        run: |
+          yarn add --dev @babel/core @babel/preset-env @babel/plugin-transform-modules-commonjs babel-jest
+
+      - name: 显示安装的依赖
+        run: |
+          yarn list @babel/plugin-transform-modules-commonjs
+          yarn list babel-jest
+          yarn list @babel/core
+
+      - name: 运行测试
+        run: yarn test
+        env:
+          CI: true
+          NODE_ENV: test
+          JWT_SECRET: test_secret
+          MONGO_URI: mongodb://localhost:27017/chainintelai_test
+
+      - name: 上传测试覆盖率报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: backend/coverage/
 
   hardhat-test:
     needs: setup
-    uses: ./.github/workflows/hardhat-test.yml
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/hardhat
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: "yarn"
+          cache-dependency-path: backend/hardhat/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 编译合约
+        run: yarn compile
+
+      - name: 确保deployed目录存在
+        run: mkdir -p deployed
+
+      - name: 运行测试
+        run: yarn test
 
   build:
     needs: [backend-test, hardhat-test]
