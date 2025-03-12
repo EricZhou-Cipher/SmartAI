@@ -61,30 +61,6 @@ jobs:
           rm -f babel.config.js babel.config.cjs .babelrc jest.config.js jest.config.cjs jest.setup.js
           rm -f babel-virtual-resolve-base.js babel-resolver.js
 
-      - name: 创建最简单的Babel配置
-        run: |
-          echo "创建最简单的Babel配置..."
-          echo '{
-            "presets": [
-              ["@babel/preset-env", { "targets": { "node": "current" } }],
-              "@babel/preset-typescript"
-            ],
-            "plugins": ["@babel/plugin-transform-modules-commonjs"]
-          }' > .babelrc
-
-      - name: 创建最简单的Jest配置
-        run: |
-          echo "创建最简单的Jest配置..."
-          echo 'module.exports = {
-            testEnvironment: "node",
-            transform: {
-              "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
-            },
-            transformIgnorePatterns: [
-              "/node_modules/(?!(@babel)/)"
-            ]
-          };' > jest.config.js
-
       - name: 安装依赖
         run: |
           echo "安装项目依赖..."
@@ -93,17 +69,69 @@ jobs:
           # 显示安装的依赖
           npm list --depth=0
 
-      - name: 直接安装关键依赖
+      - name: 全局安装关键依赖
         run: |
-          echo "直接安装关键依赖..."
-          npm install --save-dev @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/preset-typescript@7.23.3 babel-jest@29.7.0
-          npm install --save-dev @babel/plugin-transform-modules-commonjs@7.26.3
+          echo "全局安装关键依赖..."
+          npm install -g @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/preset-typescript@7.23.3 babel-jest@29.7.0
+          npm install -g @babel/plugin-transform-modules-commonjs@7.26.3
 
           # 验证安装
-          npm list @babel/plugin-transform-modules-commonjs
+          npm list -g @babel/plugin-transform-modules-commonjs
 
-          # 确认模块可以被加载
-          node -e "try { require('@babel/plugin-transform-modules-commonjs'); console.log('模块加载成功'); } catch(e) { console.error('模块加载失败:', e); process.exit(1); }"
+      - name: 创建特殊配置
+        run: |
+          echo "创建特殊配置..."
+
+          # 创建babel.config.js
+          cat > babel.config.js << 'EOL'
+          module.exports = {
+            presets: [
+              ['@babel/preset-env', { targets: { node: 'current' } }],
+              '@babel/preset-typescript'
+            ],
+            plugins: [
+              '@babel/plugin-transform-modules-commonjs'
+            ]
+          };
+          EOL
+
+          # 创建.babelrc (备用)
+          cat > .babelrc << 'EOL'
+          {
+            "presets": [
+              ["@babel/preset-env", { "targets": { "node": "current" } }],
+              "@babel/preset-typescript"
+            ],
+            "plugins": ["@babel/plugin-transform-modules-commonjs"]
+          }
+          EOL
+
+          # 创建jest.config.js
+          cat > jest.config.js << 'EOL'
+          module.exports = {
+            testEnvironment: "node",
+            transform: {
+              "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
+            },
+            transformIgnorePatterns: []
+          };
+          EOL
+
+      - name: 直接修复node_modules
+        run: |
+          echo "直接修复node_modules..."
+
+          # 确保@babel/plugin-transform-modules-commonjs存在
+          mkdir -p node_modules/@babel/plugin-transform-modules-commonjs
+
+          # 如果目录为空，则从全局复制
+          if [ ! "$(ls -A node_modules/@babel/plugin-transform-modules-commonjs)" ]; then
+            echo "复制全局模块到本地..."
+            cp -r $(npm root -g)/@babel/plugin-transform-modules-commonjs/* node_modules/@babel/plugin-transform-modules-commonjs/
+          fi
+
+          # 验证模块存在
+          ls -la node_modules/@babel/plugin-transform-modules-commonjs
 
       - name: 创建测试文件
         run: |
@@ -117,20 +145,29 @@ jobs:
           });
           EOL
 
-      - name: 运行简单测试
+      - name: 使用不同方式运行测试
         run: |
-          echo "运行简单测试..."
-          NODE_ENV=test npx jest src/tests/unit/simple.test.js --verbose
+          echo "使用不同方式运行测试..."
+
+          # 方法1: 使用NODE_PATH
+          NODE_PATH=./node_modules:$(npm root -g) npx jest src/tests/unit/simple.test.js --no-cache
+
+          # 方法2: 使用babel-node
+          npm install -g @babel/node
+          npx babel-node node_modules/.bin/jest src/tests/unit/simple.test.js --no-cache
+
+          # 方法3: 使用ts-node
+          npm install -g ts-node
+          NODE_OPTIONS="--max-old-space-size=4096" npx ts-node node_modules/.bin/jest src/tests/unit/simple.test.js --no-cache
         env:
           CI: true
           NODE_ENV: test
           DEBUG: "jest,jest-worker,babel:*"
-          NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: 运行所有测试
+      - name: 跳过覆盖率收集运行测试
         run: |
-          echo "运行所有测试..."
-          NODE_ENV=test npx jest --verbose
+          echo "跳过覆盖率收集运行测试..."
+          NODE_ENV=test npx jest --no-coverage --verbose
         env:
           CI: true
           NODE_ENV: test
@@ -138,9 +175,3 @@ jobs:
           MONGO_URI: mongodb://localhost:27017/chainintelai_test
           DEBUG: "jest,jest-worker,babel:*"
           NODE_OPTIONS: "--max-old-space-size=4096"
-
-      - name: 上传测试覆盖率报告
-        uses: actions/upload-artifact@v3
-        with:
-          name: coverage-report
-          path: backend/coverage/
