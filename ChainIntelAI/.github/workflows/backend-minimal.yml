@@ -31,10 +31,6 @@ jobs:
           echo "GitHub Actions环境信息："
           env | grep -E "GITHUB|NODE|PATH|RUNNER"
 
-      - name: 安装依赖
-        run: |
-          echo "跳过yarn安装，使用纯Node.js"
-
       - name: 直接运行Node.js脚本
         run: |
           echo 'console.log("测试成功 - 纯Node.js运行正常");' > test.js
@@ -45,17 +41,32 @@ jobs:
           echo 'const assert = require("assert"); assert.strictEqual(1+1, 2); console.log("断言测试通过");' > assert-test.js
           node assert-test.js
 
-      - name: 检查package.json
+      - name: 创建独立测试目录
         run: |
-          echo "package.json内容："
-          cat package.json
+          # 创建一个全新的目录，避免与现有项目冲突
+          mkdir -p ~/jest-test
+          cd ~/jest-test
 
-      - name: 尝试最小化Jest
-        run: |
-          echo "安装最小化Jest..."
-          npm init -y
-          npm install --save-dev jest
+          # 使用yarn初始化项目
+          echo '{"name":"jest-test","version":"1.0.0","private":true}' > package.json
+
+          # 使用yarn安装Jest
+          yarn add jest --dev
+
+          # 创建最简单的Jest配置
           echo 'module.exports = { testEnvironment: "node" };' > jest.config.js
+
+          # 创建最简单的测试文件
           echo 'describe("最小化测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > simple.test.js
-          echo "运行最小化Jest..."
-          npx jest simple.test.js --no-cache
+
+          # 使用yarn运行Jest
+          yarn jest simple.test.js --no-cache
+
+      - name: 尝试在项目中使用最小化Jest
+        run: |
+          # 在项目目录中创建最小化测试
+          echo 'module.exports = { testEnvironment: "node" };' > minimal.jest.config.js
+          echo 'describe("项目内最小化测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > minimal.test.js
+
+          # 使用yarn运行Jest，但不使用项目的配置
+          yarn jest minimal.test.js --config=minimal.jest.config.js --no-cache
