@@ -70,27 +70,44 @@ jobs:
 
       - name: 安装依赖
         working-directory: ./backend
-        run: yarn install --frozen-lockfile
+        run: |
+          yarn install --frozen-lockfile
+          yarn add --dev @babel/plugin-transform-modules-commonjs
+          yarn list @babel/plugin-transform-modules-commonjs
 
       - name: 检查配置文件
         working-directory: ./backend
         run: |
           ls -la
-          if [ ! -f babel.config.js ]; then
-            echo "babel.config.js 不存在，创建它"
-            echo "module.exports = {
-              presets: [['@babel/preset-env', { targets: { node: 'current' } }], '@babel/preset-typescript'],
-              plugins: ['@babel/plugin-transform-modules-commonjs'],
-            };" > babel.config.js
-          fi
+          echo "创建 babel.config.js"
+          echo 'module.exports = {
+            presets: [
+              ["@babel/preset-env", { targets: { node: "current" } }],
+              "@babel/preset-typescript",
+            ],
+            plugins: [
+              "@babel/plugin-transform-modules-commonjs",
+            ],
+          };' > babel.config.js
+          echo "创建 .babelrc"
+          echo '{
+            "presets": [
+              ["@babel/preset-env", { "targets": { "node": "current" } }],
+              "@babel/preset-typescript"
+            ],
+            "plugins": [
+              "@babel/plugin-transform-modules-commonjs"
+            ]
+          }' > .babelrc
           cat babel.config.js
+          cat .babelrc
           cat jest.config.cjs
           yarn list @babel/plugin-transform-modules-commonjs
 
       - name: 运行单元测试
         working-directory: ./backend
         run: |
-          NODE_ENV=test yarn jest --config=jest.config.cjs
+          NODE_ENV=test yarn jest --config=jest.config.cjs --no-cache
         env:
           NODE_ENV: test
 

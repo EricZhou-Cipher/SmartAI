@@ -34,35 +34,40 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn add --dev @babel/plugin-transform-modules-commonjs
+          yarn list @babel/plugin-transform-modules-commonjs
 
       - name: 检查配置文件
         working-directory: ./backend
         run: |
           ls -la
-          echo "检查 babel.config.js"
-          if [ ! -f babel.config.js ]; then
-            echo "babel.config.js 不存在，创建它"
-            echo 'module.exports = {
-              presets: [
-                ["@babel/preset-env", { targets: { node: "current" } }],
-                "@babel/preset-typescript",
-              ],
-              plugins: [
-                "@babel/plugin-transform-modules-commonjs",
-                "@babel/plugin-proposal-class-properties",
-                "@babel/plugin-proposal-object-rest-spread",
-                "@babel/plugin-transform-runtime"
-              ],
-            };' > babel.config.js
-          fi
+          echo "创建 babel.config.js"
+          echo 'module.exports = {
+            presets: [
+              ["@babel/preset-env", { targets: { node: "current" } }],
+              "@babel/preset-typescript",
+            ],
+            plugins: [
+              "@babel/plugin-transform-modules-commonjs",
+            ],
+          };' > babel.config.js
+          echo "创建 .babelrc"
+          echo '{
+            "presets": [
+              ["@babel/preset-env", { "targets": { "node": "current" } }],
+              "@babel/preset-typescript"
+            ],
+            "plugins": [
+              "@babel/plugin-transform-modules-commonjs"
+            ]
+          }' > .babelrc
           cat babel.config.js
-          echo "检查 jest.config.cjs"
+          cat .babelrc
           cat jest.config.cjs
 
       - name: 运行 OpenTelemetry 测试
         working-directory: ./backend
         run: |
-          NODE_ENV=test yarn jest --testMatch="**/tests/**/*telemetry*.test.ts" --config=jest.config.cjs --verbose
+          NODE_ENV=test yarn jest --testMatch="**/tests/**/*telemetry*.test.ts" --config=jest.config.cjs --verbose --no-cache
         env:
           NODE_ENV: test
           DEBUG: 'true'

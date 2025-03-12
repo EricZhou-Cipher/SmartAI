@@ -14,4 +14,10 @@ module.exports = {
   verbose: true,
   forceExit: true,
   detectOpenHandles: true,
+  globals: {
+    'ts-jest': {
+      isolatedModules: true,
+      useESM: false,
+    },
+  },
 };
