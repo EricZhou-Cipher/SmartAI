@@ -1,0 +1,33 @@
+name: 全新最小化测试 (Fresh Minimal Test)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fresh-minimal-test.yml" # 只在此文件变化时触发
+
+jobs:
+  basic_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 直接运行Node.js测试
+        run: |
+          # 不检出代码，完全独立于仓库
+          echo "显示环境信息:"
+          node -v
+          npm -v
+          which yarn || echo "yarn不存在"
+
+          # 创建一个极简测试文件
+          echo 'console.log("这是一个独立的测试"); console.log("当前运行环境:", process.env.NODE_ENV); process.exit(0);' > test.js
+
+          # 直接运行测试
+          node test.js
+
+      - name: 创建虚拟babel文件
+        run: |
+          # 创建虚拟babel文件
+          echo 'module.exports = { plugins: [] };' > babel-virtual-resolve-base.js
+          cat babel-virtual-resolve-base.js
+
+          echo "√ 测试成功完成，无需yarn或babel依赖"
