@@ -50,6 +50,8 @@ jobs:
           echo "清除Jest缓存..."
           yarn jest --clearCache
           rm -rf node_modules/.cache
+          rm -rf coverage
+          rm -rf .nyc_output
 
       - name: 创建tsconfig.json
         run: |
@@ -85,13 +87,14 @@ jobs:
           module.exports = {
             preset: 'ts-jest',
             testEnvironment: 'node',
+            collectCoverage: false,
             coverageProvider: 'v8',
             transform: {
               '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
               '^.+\\.(js|jsx)$': ['ts-jest', { tsconfig: 'tsconfig.json', useESM: false }]
             },
             transformIgnorePatterns: [
-              "/node_modules/(?!(@babel/runtime)/)"
+              "/node_modules/"
             ],
             moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
             testMatch: ['**/tests/**/*.test.ts', '**/tests/**/*.test.js', '**/src/tests/**/*.test.js', '**/src/tests/**/*.test.ts'],
@@ -126,9 +129,12 @@ jobs:
           echo 'const Address = require("../../models/Address"); describe("Address模块", () => { test("formatAddress函数应该正确格式化地址", () => { expect(Address.formatAddress("0xABC")).toBe("0xabc"); }); });' > src/tests/unit/address.test.js
 
           # 创建类型定义文件
-          echo 'export interface RiskLevel { level: string; score: number; } export interface RiskAnalysis { score: number; level: string; factors: string[]; }' > src/types/events.js
-          echo 'import { RiskLevel } from "./events.js"; export interface AddressProfile { address: string; category: string; tags: string[]; }' > src/types/profile.js
-          echo 'export interface RiskAnalysis { score: number; level: string; factors: string[]; }' > src/types/riskAnalysis.js
+          echo 'export interface RiskLevel { level: string; score: number; } export interface RiskAnalysis { score: number; level: string; factors: string[]; }' > src/types/events.ts
+          echo 'import { RiskLevel } from "./events"; export interface AddressProfile { address: string; category: string; tags: string[]; }' > src/types/profile.ts
+          echo 'export interface RiskAnalysis { score: number; level: string; factors: string[]; }' > src/types/riskAnalysis.ts
+
+          # 创建babel-virtual-resolve-base.js文件（为了解决错误）
+          echo '// 这是一个空文件，用于解决Jest覆盖率收集时的Babel依赖问题' > babel-virtual-resolve-base.js
 
       - name: 显示Jest配置
         run: |
@@ -138,14 +144,14 @@ jobs:
       - name: 运行TypeScript测试
         run: |
           echo "运行TypeScript测试..."
-          NODE_OPTIONS="--max-old-space-size=4096 --no-warnings" yarn jest src/tests/unit/basic.test.ts --no-cache --verbose
+          NODE_OPTIONS="--max-old-space-size=4096 --no-warnings" yarn jest src/tests/unit/basic.test.ts --no-cache --verbose --no-coverage
         env:
           NODE_ENV: test
 
       - name: 运行JavaScript测试
         run: |
           echo "运行JavaScript测试..."
-          NODE_OPTIONS="--max-old-space-size=4096 --no-warnings" yarn jest src/tests/unit/address.test.js --no-cache --verbose
+          NODE_OPTIONS="--max-old-space-size=4096 --no-warnings" yarn jest src/tests/unit/address.test.js --no-cache --verbose --no-coverage
         env:
           NODE_ENV: test
 
