@@ -7,6 +7,7 @@ import { performanceMonitor, getMetrics } from '../monitoring/performanceMonitor
 import helmet from 'helmet';
 import compression from 'compression';
 import cors from 'cors';
+import { AppError, ErrorType } from '../utils/errors';
 
 // 创建一个logger实例
 const logger = new Logger();
@@ -69,21 +70,19 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // 交易分析端点
-app.post('/analyze', async (req: Request, res: Response) => {
+app.post('/analyze', async (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
   const { transaction } = req.body;
 
   if (!transaction) {
-    return res.status(400).json({
-      error: 'Missing transaction data'
-    });
+    return next(AppError.validation('Missing transaction data'));
   }
 
   // 验证必要的参数
   if (!transaction.transactionHash || !transaction.from || !transaction.to) {
-    return res.status(400).json({
-      error: 'Missing required transaction fields (transactionHash, from, to)'
-    });
+    return next(AppError.validation('Missing required transaction fields (transactionHash, from, to)', {
+      field: !transaction.transactionHash ? 'transactionHash' : !transaction.from ? 'from' : 'to'
+    }));
   }
 
   try {
@@ -135,10 +134,7 @@ app.post('/analyze', async (req: Request, res: Response) => {
       transactionHash: transaction.transactionHash
     });
     
-    return res.status(500).json({
-      error: 'Failed to process transaction',
-      message: error.message
-    });
+    return next(AppError.fromError(error, ErrorType.INTERNAL));
   }
 });
 
@@ -245,12 +241,38 @@ app.post('/analyze/batch', async (req: Request, res: Response) => {
 });
 
 // 错误处理中间件
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Unhandled error', { error: err.message, stack: err.stack });
+app.use((err: Error | AppError, req: Request, res: Response, next: NextFunction) => {
+  // 如果是自定义错误类，直接使用
+  if (err instanceof AppError) {
+    logger.error(`${err.type}: ${err.message}`, { 
+      error: err.toJSON(),
+      path: req.path,
+      method: req.method,
+      ip: req.ip
+    });
+    
+    return res.status(err.statusCode).json({
+      error: err.type,
+      message: err.message,
+      details: err.details,
+      timestamp: err.timestamp.toISOString()
+    });
+  }
+  
+  // 普通错误转换为自定义错误
+  const appError = AppError.fromError(err);
+  
+  logger.error('Unhandled error', { 
+    error: appError.toJSON(),
+    path: req.path,
+    method: req.method,
+    ip: req.ip
+  });
   
   res.status(500).json({
-    error: 'Internal server error',
-    message: err.message
+    error: appError.type,
+    message: appError.message,
+    timestamp: appError.timestamp.toISOString()
   });
 });
 

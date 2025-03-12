@@ -1,0 +1,193 @@
+name: 完整持续集成
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: 代码检查
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 运行代码检查
+        run: yarn lint
+
+  build:
+    name: 构建
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 构建项目
+        run: yarn build
+
+  unit-test:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 运行单元测试
+        run: |
+          yarn jest src/tests/unit/monitoring/basic-telemetry.test.ts --no-cache --no-transform
+          yarn jest src/tests/unit/monitoring/simple-telemetry.test.ts --no-cache --no-transform
+          yarn jest src/tests/unit/monitoring/functional-telemetry.test.ts --no-cache --no-transform
+        env:
+          NODE_ENV: test
+
+      - name: 上传单元测试报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: unit-test-report
+          path: coverage/
+
+  integration-test:
+    name: 集成测试
+    runs-on: ubuntu-latest
+    needs: unit-test
+
+    services:
+      mongodb:
+        image: mongo:4.4
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 运行集成测试
+        run: |
+          yarn jest src/tests/integration/monitoring/telemetry-integration.test.ts --no-cache --no-transform
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/chainIntelAI_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+
+      - name: 上传集成测试报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-test-report
+          path: coverage/
+
+  performance-test:
+    name: 性能测试
+    runs-on: ubuntu-latest
+    needs: integration-test
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 运行性能测试
+        run: |
+          yarn jest src/tests/performance/monitoring/telemetry-performance.test.ts --no-cache --no-transform
+        env:
+          NODE_ENV: test
+
+      - name: 上传性能测试报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-test-report
+          path: coverage/
+
+  deploy:
+    name: 部署
+    runs-on: ubuntu-latest
+    needs: [unit-test, integration-test, performance-test]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 构建项目
+        run: yarn build
+
+      - name: 部署到开发环境
+        run: echo "部署到开发环境"
+        # 这里添加实际的部署命令

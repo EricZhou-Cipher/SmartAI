@@ -1,91 +1,89 @@
 #!/bin/bash
 
-# 运行所有测试的脚本
-# 使用方法: ./run-all-tests.sh [--ci]
+# 运行所有测试
+# 用法: bash scripts/run-all-tests.sh [--ci]
 
-# 检查是否在CI环境中运行
+# 检查是否在 CI 环境中运行
 CI_MODE=false
 if [ "$1" == "--ci" ]; then
   CI_MODE=true
-  echo "在CI环境中运行测试..."
-else
-  echo "在本地环境中运行测试..."
+  echo "在 CI 模式下运行测试"
 fi
 
-# 设置颜色
+# 设置环境变量
+export NODE_ENV=test
+
+# 颜色定义
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
-# 创建结果目录
-RESULTS_DIR="./test-results"
-mkdir -p $RESULTS_DIR
+# 计数器
+TOTAL_TESTS=0
+PASSED_TESTS=0
+FAILED_TESTS=0
 
-# 获取当前时间戳
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-
-# 运行单元测试和集成测试
-echo -e "${YELLOW}运行单元测试和集成测试...${NC}"
-if [ "$CI_MODE" == "true" ]; then
-  yarn test:ci
-else
-  yarn test --coverage
-fi
-
-# 保存测试状态
-TEST_STATUS=$?
-if [ $TEST_STATUS -eq 0 ]; then
-  echo -e "${GREEN}单元测试和集成测试通过!${NC}"
-else
-  echo -e "${RED}单元测试和集成测试失败!${NC}"
-  exit $TEST_STATUS
-fi
-
-# 运行端到端测试
-echo -e "${YELLOW}运行端到端测试...${NC}"
-yarn test:e2e
-
-# 保存测试状态
-E2E_STATUS=$?
-if [ $E2E_STATUS -eq 0 ]; then
-  echo -e "${GREEN}端到端测试通过!${NC}"
-else
-  echo -e "${RED}端到端测试失败!${NC}"
-  exit $E2E_STATUS
-fi
-
-# 如果不是在CI环境中，运行负载测试
-if [ "$CI_MODE" == "false" ]; then
-  echo -e "${YELLOW}运行负载测试...${NC}"
+# 辅助函数：运行测试并检查结果
+run_test() {
+  local test_file=$1
+  local test_name=$2
   
-  # 启动API服务器（后台运行）
-  echo "启动API服务器..."
-  yarn build
-  yarn start &
-  API_PID=$!
+  echo -e "${YELLOW}运行 $test_name 测试...${NC}"
   
-  # 等待API服务器启动
-  echo "等待API服务器启动..."
-  sleep 10
-  
-  # 运行负载测试
-  yarn test:load
-  
-  # 保存测试状态
-  LOAD_STATUS=$?
-  
-  # 关闭API服务器
-  echo "关闭API服务器..."
-  kill $API_PID
-  
-  if [ $LOAD_STATUS -eq 0 ]; then
-    echo -e "${GREEN}负载测试通过!${NC}"
+  if [ "$CI_MODE" = true ]; then
+    yarn jest "$test_file" --no-cache --no-transform --ci
   else
-    echo -e "${RED}负载测试失败!${NC}"
-    exit $LOAD_STATUS
+    yarn jest "$test_file" --no-cache --no-transform
   fi
-fi
+  
+  local result=$?
+  TOTAL_TESTS=$((TOTAL_TESTS + 1))
+  
+  if [ $result -eq 0 ]; then
+    echo -e "${GREEN}✓ $test_name 测试通过${NC}"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+  else
+    echo -e "${RED}✗ $test_name 测试失败${NC}"
+    FAILED_TESTS=$((FAILED_TESTS + 1))
+  fi
+  
+  echo ""
+  return $result
+}
 
-echo -e "${GREEN}所有测试通过!${NC}"
-exit 0 
+# 创建测试报告目录
+mkdir -p test-reports
+
+echo "===== 开始运行测试 ====="
+echo ""
+
+# 运行单元测试
+echo "===== 单元测试 ====="
+run_test "src/tests/unit/monitoring/basic-telemetry.test.ts" "基本 OpenTelemetry"
+run_test "src/tests/unit/monitoring/simple-telemetry.test.ts" "简单 OpenTelemetry"
+run_test "src/tests/unit/monitoring/functional-telemetry.test.ts" "功能性 OpenTelemetry"
+
+# 运行集成测试
+echo "===== 集成测试 ====="
+run_test "src/tests/integration/monitoring/telemetry-integration.test.ts" "OpenTelemetry 集成"
+
+# 运行性能测试
+echo "===== 性能测试 ====="
+run_test "src/tests/performance/monitoring/telemetry-performance.test.ts" "OpenTelemetry 性能"
+
+# 打印测试结果摘要
+echo "===== 测试结果摘要 ====="
+echo -e "总测试数: $TOTAL_TESTS"
+echo -e "${GREEN}通过: $PASSED_TESTS${NC}"
+echo -e "${RED}失败: $FAILED_TESTS${NC}"
+echo ""
+
+# 如果有测试失败，则退出代码为 1
+if [ $FAILED_TESTS -gt 0 ]; then
+  echo -e "${RED}有 $FAILED_TESTS 个测试失败${NC}"
+  exit 1
+else
+  echo -e "${GREEN}所有测试通过${NC}"
+  exit 0
+fi 

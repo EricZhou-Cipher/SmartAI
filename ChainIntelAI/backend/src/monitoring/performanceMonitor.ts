@@ -88,8 +88,8 @@ const cacheHitRatio = new Gauge({
   help: 'Cache hit ratio',
   labelNames: ['cache_type'],
   collect() {
-    const redisHits = (cacheHitCounter.labels('redis') as any).get ? (cacheHitCounter.labels('redis') as any).get() : 0;
-    const redisMisses = (cacheMissCounter.labels('redis') as any).get ? (cacheMissCounter.labels('redis') as any).get() : 0;
+    const redisHits = cacheHitCounter.labels({ cache_type: 'redis' }).get();
+    const redisMisses = cacheMissCounter.labels({ cache_type: 'redis' }).get();
     const total = redisHits + redisMisses;
     
     if (total > 0) {
@@ -219,8 +219,8 @@ export function performanceMonitor() {
     const errorRate = requestCount > 0 ? (errorCount / requestCount) * 100 : 0;
     
     // 计算缓存命中率
-    const redisHits = (cacheHitCounter.labels('redis') as any).get ? (cacheHitCounter.labels('redis') as any).get() : 0;
-    const redisMisses = (cacheMissCounter.labels('redis') as any).get ? (cacheMissCounter.labels('redis') as any).get() : 0;
+    const redisHits = cacheHitCounter.labels({ cache_type: 'redis' }).get();
+    const redisMisses = cacheMissCounter.labels({ cache_type: 'redis' }).get();
     const cacheTotal = redisHits + redisMisses;
     const cacheHitRatioValue = cacheTotal > 0 ? redisHits / cacheTotal : 1;
     
@@ -256,8 +256,8 @@ export function performanceMonitor() {
       cacheHitRatio: cacheHitRatioValue,
       dbP95Latencies,
       activeConnections: {
-        mongodb: (activeConnections.labels('mongodb') as any).get ? (activeConnections.labels('mongodb') as any).get() : 0,
-        redis: (activeConnections.labels('redis') as any).get ? (activeConnections.labels('redis') as any).get() : 0
+        mongodb: activeConnections.labels({ type: 'mongodb' }).get(),
+        redis: activeConnections.labels({ type: 'redis' }).get()
       }
     });
   }, 60 * 1000);
@@ -271,7 +271,7 @@ export function performanceMonitor() {
     requestCount++;
     
     // 记录活跃连接
-    activeConnections.labels('http').inc();
+    activeConnections.labels({ type: 'http' }).inc();
     
     // 捕获响应
     const originalSend = res.send;
@@ -280,21 +280,25 @@ export function performanceMonitor() {
       const responseTimeInSeconds = diff[0] + diff[1] / 1e9;
       
       // 记录延迟
-      requestLatency.labels(method, path).observe(responseTimeInSeconds);
+      requestLatency.labels({ method, route: path }).observe(responseTimeInSeconds);
       latencyValues.push(responseTimeInSeconds);
       
       // 记录请求状态
       const statusCode = res.statusCode;
-      requestCounter.labels(method, path, statusCode.toString()).inc();
+      requestCounter.labels({ method, route: path, status: statusCode.toString() }).inc();
       
       // 记录错误
       if (statusCode >= 400) {
-        errorCounter.labels(method, path, statusCode >= 500 ? 'server_error' : 'client_error').inc();
+        errorCounter.labels({ 
+          method, 
+          route: path, 
+          error_type: statusCode >= 500 ? 'server_error' : 'client_error' 
+        }).inc();
         errorCount++;
       }
       
       // 减少活跃连接
-      activeConnections.labels('http').dec();
+      activeConnections.labels({ type: 'http' }).dec();
       
       return originalSend.call(this, body);
     };
@@ -307,7 +311,7 @@ export function performanceMonitor() {
  * 记录数据库查询延迟
  */
 export function recordDbQueryLatency(operation: string, collection: string, durationInSeconds: number): void {
-  dbQueryLatency.labels(operation, collection).observe(durationInSeconds);
+  dbQueryLatency.labels({ operation, collection }).observe(durationInSeconds);
   
   if (!dbLatencyValues[operation]) {
     dbLatencyValues[operation] = [];
@@ -320,11 +324,11 @@ export function recordDbQueryLatency(operation: string, collection: string, dura
  * 记录缓存命中/未命中
  */
 export function recordCacheHit(cacheType: string = 'redis'): void {
-  cacheHitCounter.labels(cacheType).inc();
+  cacheHitCounter.labels({ cache_type: cacheType }).inc();
 }
 
 export function recordCacheMiss(cacheType: string = 'redis'): void {
-  cacheMissCounter.labels(cacheType).inc();
+  cacheMissCounter.labels({ cache_type: cacheType }).inc();
 }
 
 /**
@@ -332,9 +336,9 @@ export function recordCacheMiss(cacheType: string = 'redis'): void {
  */
 export function recordDbConnection(type: string, increment: boolean = true): void {
   if (increment) {
-    activeConnections.labels(type).inc();
+    activeConnections.labels({ type }).inc();
   } else {
-    activeConnections.labels(type).dec();
+    activeConnections.labels({ type }).dec();
   }
 }
 
@@ -356,8 +360,8 @@ export function getPerformanceStats() {
   
   const errorRate = requestCount > 0 ? (errorCount / requestCount) * 100 : 0;
   
-  const redisHits = (cacheHitCounter.labels('redis') as any).get ? (cacheHitCounter.labels('redis') as any).get() : 0;
-  const redisMisses = (cacheMissCounter.labels('redis') as any).get ? (cacheMissCounter.labels('redis') as any).get() : 0;
+  const redisHits = cacheHitCounter.labels({ cache_type: 'redis' }).get();
+  const redisMisses = cacheMissCounter.labels({ cache_type: 'redis' }).get();
   const cacheTotal = redisHits + redisMisses;
   const cacheHitRatioValue = cacheTotal > 0 ? redisHits / cacheTotal : 1;
   
@@ -375,9 +379,9 @@ export function getPerformanceStats() {
     cacheHitRatio: cacheHitRatioValue,
     dbLatency: dbP95Latencies,
     activeConnections: {
-      mongodb: (activeConnections.labels('mongodb') as any).get ? (activeConnections.labels('mongodb') as any).get() : 0,
-      redis: (activeConnections.labels('redis') as any).get ? (activeConnections.labels('redis') as any).get() : 0,
-      http: (activeConnections.labels('http') as any).get ? (activeConnections.labels('http') as any).get() : 0
+      mongodb: activeConnections.labels({ type: 'mongodb' }).get(),
+      redis: activeConnections.labels({ type: 'redis' }).get(),
+      http: activeConnections.labels({ type: 'http' }).get()
     },
     requestCount,
     errorCount
