@@ -36,11 +36,20 @@ jobs:
           echo "使用yarn安装依赖..."
           yarn install --frozen-lockfile
 
+          echo "移除所有Babel相关依赖..."
+          yarn remove @babel/cli @babel/core @babel/plugin-proposal-class-properties @babel/plugin-proposal-object-rest-spread @babel/plugin-transform-modules-commonjs @babel/plugin-transform-runtime @babel/preset-env @babel/preset-typescript @babel/runtime babel-jest
+
           echo "确保ts-jest和相关依赖已安装..."
           yarn add --dev ts-jest @types/jest typescript
 
           echo "显示已安装的依赖版本："
           yarn list | grep -E "jest|typescript"
+
+      - name: 清除 Jest 缓存
+        run: |
+          echo "清除Jest缓存..."
+          yarn jest --clearCache
+          rm -rf node_modules/.cache
 
       - name: 创建tsconfig.json
         run: |
@@ -72,6 +81,7 @@ jobs:
           module.exports = {
             preset: 'ts-jest',
             testEnvironment: 'node',
+            coverageProvider: 'v8',
             transform: {
               '^.+\\.(ts|tsx|js|jsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
             },

@@ -5,6 +5,8 @@
 
 module.exports = {
   testEnvironment: 'node',
+  // 使用V8引擎收集覆盖率，完全绕过Babel
+  coverageProvider: 'v8',
   transform: {
     '^.+\\.(ts|tsx|js|jsx)$': [
       'ts-jest',
