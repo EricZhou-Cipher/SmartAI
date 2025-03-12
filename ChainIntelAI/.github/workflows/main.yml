@@ -81,24 +81,23 @@ jobs:
           cache: "yarn"
           cache-dependency-path: backend/yarn.lock
 
-      - name: 删除node_modules（如果存在）
+      - name: 清理node_modules并安装依赖
         run: |
           if [ -d "node_modules" ]; then
             rm -rf node_modules
           fi
+          yarn install --frozen-lockfile
 
-      - name: 安装依赖
-        run: yarn install --frozen-lockfile
-
-      - name: 安装Babel插件
+      - name: 显式安装Babel插件和相关依赖
         run: |
-          yarn add --dev @babel/core @babel/preset-env @babel/plugin-transform-modules-commonjs babel-jest
+          yarn add --dev @babel/core@7.22.5 @babel/preset-env@7.22.5 @babel/plugin-transform-modules-commonjs@7.22.5 babel-jest@29.5.0 @babel/cli@7.22.5 --exact
 
-      - name: 显示安装的依赖
+      - name: 检查Babel插件安装情况
         run: |
-          yarn list @babel/plugin-transform-modules-commonjs
-          yarn list babel-jest
-          yarn list @babel/core
+          echo "检查babel插件安装路径和版本:"
+          ls -la node_modules/@babel/plugin-transform-modules-commonjs
+          yarn why @babel/plugin-transform-modules-commonjs
+          node -e "console.log('Babel插件已安装:', require.resolve('@babel/plugin-transform-modules-commonjs'))"
 
       # 检查是否有测试源文件
       - name: 检查测试文件
@@ -123,7 +122,7 @@ jobs:
           TEST_FILE=$(find tests -name "*.test.js" -o -name "*.test.ts" | head -1)
           if [ -n "$TEST_FILE" ]; then
             echo "尝试运行单个测试: $TEST_FILE"
-            yarn jest --no-cache --runInBand --verbose $TEST_FILE
+            NODE_OPTIONS=--max-old-space-size=4096 yarn jest --no-cache --runInBand --verbose --config=jest.config.cjs $TEST_FILE
           else
             echo "未找到测试文件"
           fi
@@ -133,15 +132,17 @@ jobs:
           JWT_SECRET: test_secret
           MONGO_URI: mongodb://localhost:27017/chainintelai_test
           DEBUG: "jest,jest-worker"
+          BABEL_ENV: test
 
       - name: 运行测试
-        run: yarn test --no-cache --runInBand --verbose
+        run: NODE_OPTIONS=--max-old-space-size=4096 yarn jest --no-cache --runInBand --verbose --config=jest.config.cjs
         env:
           CI: true
           NODE_ENV: test
           JWT_SECRET: test_secret
           MONGO_URI: mongodb://localhost:27017/chainintelai_test
           DEBUG: "jest,jest-worker"
+          BABEL_ENV: test
 
       - name: 上传测试覆盖率报告
         uses: actions/upload-artifact@v3
