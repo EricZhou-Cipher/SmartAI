@@ -31,31 +31,69 @@ jobs:
           echo "GitHub Actions环境信息："
           env | grep -E "GITHUB|NODE|PATH|RUNNER"
 
-      - name: 清理并安装依赖
+      - name: 直接安装关键依赖
         run: |
+          # 完全清理node_modules
           rm -rf node_modules
-          yarn cache clean
+
+          # 全局安装关键依赖
+          npm install -g @babel/plugin-transform-modules-commonjs@7.24.0
+
+          # 创建本地node_modules目录结构
+          mkdir -p node_modules/@babel/plugin-transform-modules-commonjs
+
+          # 从全局复制到本地
+          cp -r $(npm root -g)/@babel/plugin-transform-modules-commonjs/* node_modules/@babel/plugin-transform-modules-commonjs/
+
+          # 检查复制结果
+          ls -la node_modules/@babel/plugin-transform-modules-commonjs
+
+          # 安装其他依赖
           yarn install --frozen-lockfile
 
-      - name: 确保Babel插件安装正确
-        run: |
-          # 确保@babel/plugin-transform-modules-commonjs安装在dependencies中
-          yarn add @babel/plugin-transform-modules-commonjs@7.24.0 --exact
-
-          # 检查安装情况
-          echo "检查babel插件安装路径和版本:"
+          # 再次确认babel插件存在
           ls -la node_modules/@babel/plugin-transform-modules-commonjs
-          yarn why @babel/plugin-transform-modules-commonjs
-          node -e "console.log('Babel插件已安装:', require.resolve('@babel/plugin-transform-modules-commonjs'))"
 
       - name: 创建简单测试文件
         run: |
           mkdir -p src/tests/unit
           echo 'describe("基本测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > src/tests/unit/basic.test.js
 
+      - name: 创建简化的Jest配置
+        run: |
+          cat > jest.simple.js << 'EOF'
+          module.exports = {
+            testEnvironment: 'node',
+            transform: {
+              '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.simple.js' }]
+            },
+            moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
+            testMatch: ['**/basic.test.js'],
+            transformIgnorePatterns: []
+          };
+          EOF
+
+          cat > babel.simple.js << 'EOF'
+          module.exports = {
+            presets: [
+              ['@babel/preset-env', { targets: { node: 'current' } }]
+            ],
+            plugins: [
+              '@babel/plugin-transform-modules-commonjs'
+            ]
+          };
+          EOF
+
       - name: 运行简单测试
         run: |
-          NODE_OPTIONS="--max-old-space-size=4096" yarn jest src/tests/unit/basic.test.js --no-cache --config=jest.config.js
+          # 设置NODE_PATH以确保能找到全局安装的模块
+          export NODE_PATH=$(npm root -g):$NODE_PATH
+
+          # 显示环境变量
+          echo "NODE_PATH=$NODE_PATH"
+
+          # 运行测试
+          NODE_OPTIONS="--max-old-space-size=4096" yarn jest src/tests/unit/basic.test.js --no-cache --config=jest.simple.js
         env:
           NODE_ENV: test
           BABEL_ENV: test
