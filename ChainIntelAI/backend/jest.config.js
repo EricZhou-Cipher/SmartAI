@@ -27,7 +27,7 @@ module.exports = {
     '/node_modules/(?!(@babel|@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|prom-client)/)',
   ],
   // 添加额外设置以确保正确收集覆盖率
-  collectCoverage: true,
+  collectCoverage: false,
   coverageReporters: ['text', 'lcov', 'clover'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
