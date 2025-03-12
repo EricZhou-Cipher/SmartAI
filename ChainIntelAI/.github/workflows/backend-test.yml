@@ -59,22 +59,24 @@ jobs:
           rm -rf node_modules package-lock.json yarn.lock
           rm -rf coverage .nyc_output
           rm -f babel.config.cjs jest.config.cjs
+          # 确保删除可能导致问题的文件
+          rm -f babel-virtual-resolve-base.js babel-resolver.js
 
       - name: 安装依赖
         run: |
           echo "安装项目依赖..."
-          npm install --no-audit --no-fund
+          npm ci
 
           # 显示安装的依赖
           npm list --depth=0
 
-      - name: 安装Babel插件
+      - name: 验证Babel插件
         run: |
-          echo "安装Babel插件..."
-          npm install --save-dev @babel/plugin-transform-modules-commonjs@7.26.3
-
-          # 验证安装
+          echo "验证Babel插件..."
           npm list @babel/plugin-transform-modules-commonjs
+
+          # 确认模块可以被加载
+          node -e "try { require('@babel/plugin-transform-modules-commonjs'); console.log('模块加载成功'); } catch(e) { console.error('模块加载失败:', e); process.exit(1); }"
 
       - name: 创建测试文件
         run: |
