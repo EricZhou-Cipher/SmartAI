@@ -23,4 +23,11 @@ module.exports = {
   testMatch: ['**/?(*.)+(spec|test).{js,jsx,ts,tsx}'],
   transformIgnorePatterns: ['node_modules/(?!(@babel)/)'],
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  testTimeout: 30000,
+  verbose: true,
+  forceExit: true,
+  detectOpenHandles: true,
+  testEnvironmentOptions: {
+    url: 'http://localhost',
+  },
 };

@@ -100,13 +100,48 @@ jobs:
           yarn list babel-jest
           yarn list @babel/core
 
-      - name: 运行测试
-        run: yarn test
+      # 检查是否有测试源文件
+      - name: 检查测试文件
+        run: |
+          find tests -name "*.test.js" -o -name "*.test.ts" | sort
+          find src -name "*.test.js" -o -name "*.test.ts" | sort
+
+      # 检查配置文件是否存在
+      - name: 检查配置文件
+        run: |
+          ls -la jest.config.cjs
+          ls -la babel.config.cjs
+          ls -la jest.setup.js
+          echo "Jest配置内容:"
+          cat jest.config.cjs
+          echo "Babel配置内容:"
+          cat babel.config.cjs
+
+      # 先运行一个特定测试看看是否成功
+      - name: 运行单个测试
+        run: |
+          TEST_FILE=$(find tests -name "*.test.js" -o -name "*.test.ts" | head -1)
+          if [ -n "$TEST_FILE" ]; then
+            echo "尝试运行单个测试: $TEST_FILE"
+            yarn jest --no-cache --runInBand --verbose $TEST_FILE
+          else
+            echo "未找到测试文件"
+          fi
         env:
           CI: true
           NODE_ENV: test
           JWT_SECRET: test_secret
           MONGO_URI: mongodb://localhost:27017/chainintelai_test
+          DEBUG: "jest,jest-worker"
+
+      - name: 运行测试
+        run: yarn test --no-cache --runInBand --verbose
+        env:
+          CI: true
+          NODE_ENV: test
+          JWT_SECRET: test_secret
+          MONGO_URI: mongodb://localhost:27017/chainintelai_test
+          DEBUG: "jest,jest-worker"
 
       - name: 上传测试覆盖率报告
         uses: actions/upload-artifact@v3
