@@ -31,6 +31,11 @@ jobs:
           echo "GitHub Actions环境信息："
           env | grep -E "GITHUB|NODE|PATH|RUNNER"
 
+      - name: 检查项目中的包名引用
+        run: |
+          echo "检查项目中是否存在包名拼写错误..."
+          grep -r "@babel plugin-transform-modules-commonjs" --include="*.js" --include="*.json" . || echo "未找到拼写错误的引用"
+
       - name: 手动安装关键依赖
         run: |
           echo "手动安装@babel/plugin-transform-modules-commonjs..."
@@ -49,6 +54,10 @@ jobs:
           node -e "console.log('@babel/core 版本:', require('@babel/core/package.json').version)"
           node -e "console.log('babel-jest 版本:', require('babel-jest/package.json').version)"
           node -e "console.log('jest 版本:', require('jest/package.json').version)"
+
+          echo "显示模块解析路径："
+          node -e "console.log('模块解析路径:', module.paths)"
+          node -e "console.log('特定模块解析路径:', require.resolve.paths('@babel/plugin-transform-modules-commonjs'))"
 
       - name: 创建极简测试文件
         run: |
@@ -81,19 +90,55 @@ jobs:
             },
             moduleFileExtensions: ['js', 'json', 'node'],
             testMatch: ['**/tests/unit/**/*.test.js'],
-            verbose: true
+            verbose: true,
+            modulePaths: ['<rootDir>/node_modules'],
+            resolver: undefined,
+            moduleDirectories: ['node_modules']
           };
           EOF
           echo "创建的jest.config.js内容："
           cat jest.config.js
 
+      - name: 创建诊断脚本
+        run: |
+          cat > diagnose-babel.js << 'EOF'
+          console.log('开始诊断Babel模块解析问题...');
+
+          try {
+            const resolvedPath = require.resolve('@babel/plugin-transform-modules-commonjs');
+            console.log('成功解析@babel/plugin-transform-modules-commonjs，路径:', resolvedPath);
+            
+            const module = require('@babel/plugin-transform-modules-commonjs');
+            console.log('成功加载模块，类型:', typeof module);
+          } catch (error) {
+            console.error('解析模块时出错:', error.message);
+            console.error('错误堆栈:', error.stack);
+          }
+
+          console.log('node_modules/@babel目录内容:');
+          const fs = require('fs');
+          try {
+            const files = fs.readdirSync('./node_modules/@babel');
+            console.log(files);
+          } catch (e) {
+            console.error('读取目录失败:', e.message);
+          }
+          EOF
+
+          echo "诊断脚本内容："
+          cat diagnose-babel.js
+
+      - name: 运行诊断脚本
+        run: node diagnose-babel.js
+
       - name: 运行极简测试
         run: |
           echo "运行JavaScript测试..."
-          NODE_OPTIONS="--max-old-space-size=4096" yarn jest src/tests/unit/basic.test.js --no-cache --verbose
+          NODE_OPTIONS="--max-old-space-size=4096 --trace-warnings" yarn jest src/tests/unit/basic.test.js --no-cache --verbose
         env:
           NODE_ENV: test
           BABEL_ENV: test
+          DEBUG: "*"
 
       - name: Debug 运行环境
         uses: mxschmitt/action-tmate@v3
