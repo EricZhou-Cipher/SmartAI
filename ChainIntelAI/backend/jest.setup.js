@@ -1,52 +1,59 @@
 /**
- * Jest全局设置文件
- * 用于设置测试环境和全局配置
+ * Jest设置文件
+ * 确保测试环境正确设置并加载所有必要的模块
  */
 
-console.log('Jest设置文件加载中...');
-
-// 设置测试超时时间
+// 设置更长的测试超时时间
 jest.setTimeout(30000);
 
 // 设置环境变量
 process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
+process.env.MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chainintelai_test';
 
-// 尝试预先加载关键依赖
+console.log('Jest设置文件加载中...');
+
+// 预加载关键Babel模块
 try {
-  // 预加载Babel插件模块，确保它在测试运行前可用
-  const resolver = require('./babel-resolver');
+  // 尝试预加载关键模块
+  const babelModules = [
+    '@babel/core',
+    '@babel/plugin-transform-modules-commonjs',
+    '@babel/preset-env',
+    '@babel/preset-typescript',
+    'babel-jest',
+  ];
 
-  // 尝试预加载关键Babel模块
-  Object.keys(resolver.moduleMap).forEach((moduleName) => {
+  babelModules.forEach((module) => {
     try {
-      const modulePath = resolver.resolveModule(moduleName);
-      console.log(`✅ 预加载模块: ${moduleName} 从 ${modulePath}`);
-      require(modulePath);
+      require(module);
+      console.log(`✅ 预加载模块成功: ${module}`);
     } catch (err) {
-      console.warn(`⚠️ 无法预加载模块: ${moduleName}`, err.message);
-      // 使用debugModulePaths查找可能的路径
-      const possiblePath = resolver.debugModulePaths(moduleName);
-      if (possiblePath) {
-        console.log(`🔍 找到模块的可能路径: ${possiblePath}`);
-        try {
-          require(possiblePath);
-          console.log(`✅ 成功从${possiblePath}加载${moduleName}`);
-        } catch (loadErr) {
-          console.warn(`⚠️ 从发现的路径加载失败: ${loadErr.message}`);
-        }
+      console.warn(`⚠️ 无法预加载模块: ${module}`, err.message);
+      // 失败时尝试不同的方式加载
+      try {
+        const resolved = require.resolve(module, {
+          paths: [__dirname, __dirname + '/node_modules'],
+        });
+        console.log(`🔍 模块路径: ${resolved}`);
+        require(resolved);
+        console.log(`✅ 使用路径加载成功: ${resolved}`);
+      } catch (pathErr) {
+        console.error(`❌ 无法通过路径加载: ${module}`, pathErr.message);
       }
     }
   });
 
-  // 特别确保@babel/plugin-transform-modules-commonjs已加载
-  try {
-    const plugin = require('@babel/plugin-transform-modules-commonjs');
-    console.log('✅ 直接加载模块成功: @babel/plugin-transform-modules-commonjs');
-  } catch (err) {
-    console.warn('⚠️ 直接加载@babel/plugin-transform-modules-commonjs失败:', err.message);
-  }
+  // 特别检查关键插件
+  console.log('验证@babel/plugin-transform-modules-commonjs...');
+  const pluginPath = require.resolve('@babel/plugin-transform-modules-commonjs');
+  console.log('插件路径:', pluginPath);
+
+  // 检查Babel核心版本
+  const babel = require('@babel/core');
+  console.log('Babel版本:', babel.version);
 } catch (err) {
-  console.warn('加载babel-resolver期间出错:', err.message);
+  console.warn('预加载Babel模块发生错误:', err.message);
 }
 
 // 处理未捕获的Promise错误
@@ -55,8 +62,6 @@ process.on('unhandledRejection', (error) => {
 });
 
 // 环境变量设置
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
-process.env.MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chainintelai_test';
 process.env.REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 process.env.REDIS_PORT = process.env.REDIS_PORT || '6379';
 
