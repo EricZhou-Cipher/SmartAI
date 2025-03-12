@@ -1,4 +1,4 @@
-name: Backend CI/CD Minimal - 极简测试
+name: Backend CI/CD Minimal - 极简测试（强制npm）
 
 on:
   push:
@@ -10,6 +10,14 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      # 强制使用npm
+      NPM_CONFIG_USERCONFIG: "/tmp/.npmrc"
+      # 禁用yarn
+      YARN_DISABLE_SELF_UPDATE_CHECK: "true"
+      YARN_IGNORE_PATH: "true"
+      YARN_IGNORE_CWD: "true"
+      NODE_OPTIONS: "--no-experimental-fetch"
 
     steps:
       - name: 检出代码
@@ -20,17 +28,47 @@ jobs:
         with:
           node-version: 16.x
           cache: false
+          registry-url: "https://registry.npmjs.org"
+
+      - name: 彻底禁用Yarn
+        run: |
+          # 卸载全局Yarn
+          sudo npm uninstall -g yarn
+          sudo rm -rf $(which yarn) || true
+
+          # 删除所有可能的Yarn配置
+          rm -rf ~/.yarnrc ~/.yarnrc.yml ~/yarn ~/package-lock.json ~/.yarn
+
+          # 创建一个临时的npmrc
+          echo "registry=https://registry.npmjs.org/" > /tmp/.npmrc
+          echo "prefix=/tmp/.npm" >> /tmp/.npmrc
+          echo "no-fund=true" >> /tmp/.npmrc
+          echo "fund=false" >> /tmp/.npmrc
+          echo "audit=false" >> /tmp/.npmrc
+          echo "package-lock=false" >> /tmp/.npmrc
+          echo "ignore-scripts=true" >> /tmp/.npmrc
+          echo "cache=/tmp/.npm-cache" >> /tmp/.npmrc
+
+          # 禁用corepack
+          sudo corepack disable || true
+
+          # 验证yarn已被卸载
+          which yarn || echo "yarn已被成功禁用"
 
       - name: 极简环境准备
         run: |
           # 清理所有可能的干扰项
           rm -rf node_modules package-lock.json yarn.lock
           rm -rf jest.config.js babel.config.js tsconfig.json
-          rm -rf .yarn .yarnrc .npmrc
+          rm -rf .yarn .yarnrc .npmrc .yarnrc.yml package-lock.json
 
-          # 确保禁用yarn
-          corepack disable
-          npm config set ignore-engines true
+          # 创建新的package.json来避免使用yarn
+          if [ -f "package.json" ]; then
+            cat package.json | grep -v "yarn" | grep -v "packageManager" > package.json.new
+            mv package.json.new package.json
+            # 添加npm引擎配置防止yarn
+            node -e 'const pkg=require("./package.json"); pkg.engines=pkg.engines||{}; pkg.engines.npm=">=7.0.0"; pkg.packageManager="npm@8.19.3"; delete pkg.resolutions; require("fs").writeFileSync("./package.json", JSON.stringify(pkg, null, 2))'
+          fi
 
           # 检查当前环境
           echo "当前Node版本:"
@@ -38,7 +76,10 @@ jobs:
           echo "当前NPM版本:"
           npm -v
           echo "检查是否存在yarn:"
-          which yarn || echo "yarn不存在"
+          which yarn && echo "警告：yarn仍然存在" || echo "yarn不存在，符合预期"
+
+          # 验证npm工作
+          npm -v
 
           # 展示干净的环境
           ls -la
@@ -48,14 +89,18 @@ jobs:
         run: |
           # 创建一个虚拟的babel-virtual-resolve-base.js文件，该文件避免导入任何包
           echo 'module.exports = { plugins: [] };' > babel-virtual-resolve-base.js
+          cp babel-virtual-resolve-base.js ../babel-virtual-resolve-base.js
 
           # 为解决模块解析问题，手动创建@babel目录结构
           mkdir -p node_modules/@babel/plugin-transform-modules-commonjs/lib
           echo '{ "name": "@babel/plugin-transform-modules-commonjs", "version": "7.22.11", "main": "lib/index.js" }' > node_modules/@babel/plugin-transform-modules-commonjs/package.json
           echo 'module.exports = function() { return { visitor: {} }; };' > node_modules/@babel/plugin-transform-modules-commonjs/lib/index.js
 
-          # 安装必要的Babel依赖（明确使用npm而不是yarn）
-          npm install --save-dev @babel/plugin-transform-modules-commonjs
+          # 手动安装Babel依赖（强制使用npm而不是yarn）
+          export NPM_CONFIG_USERCONFIG="/tmp/.npmrc"
+          echo 'registry=https://registry.npmjs.org/' > /tmp/.npmrc
+          npm install --no-package-lock --no-save @babel/plugin-transform-modules-commonjs
+          npm install --no-package-lock --no-save babel-jest @babel/core @babel/preset-env
 
           # 显示创建的文件
           echo "babel-virtual-resolve-base.js内容:"
@@ -77,19 +122,20 @@ jobs:
           mkdir -p minimal-test
           cd minimal-test
 
-          # 创建package.json，禁用yarn相关配置
+          # 创建package.json，防止使用yarn
           echo '{"name":"minimal-test","version":"1.0.0","private":true,"engines":{"npm":">=7.0.0"},"packageManager":"npm@8.19.3"}' > package.json
 
           # 安装最小依赖集合（明确使用npm）
+          export NPM_CONFIG_USERCONFIG="/tmp/.npmrc"
           npm init -y --scope=minimal-test
-          npm install --save-dev jest babel-jest @babel/core @babel/preset-env
+          npm install --no-package-lock @babel/plugin-transform-modules-commonjs babel-jest @babel/core @babel/preset-env jest
 
           # 验证安装情况
           echo "安装的依赖:"
           npm list
 
           # 创建babel.config.js
-          echo 'module.exports = { presets: ["@babel/preset-env"] };' > babel.config.js
+          echo 'module.exports = { presets: ["@babel/preset-env"], plugins: ["@babel/plugin-transform-modules-commonjs"] };' > babel.config.js
 
           # 创建最简jest配置
           echo 'module.exports = { testEnvironment: "node", transform: { "^.+\\.js$": "babel-jest" } };' > jest.config.js
@@ -97,19 +143,21 @@ jobs:
           # 创建测试文件
           echo 'test("1+1=2", () => { expect(1+1).toBe(2); });' > simple.test.js
 
-          # 运行测试（明确使用npx和npm路径）
-          npx --no-yarn jest --no-cache
+          # 运行测试（明确使用node_modules中的jest）
+          echo "使用本地node_modules中的jest执行测试:"
+          ./node_modules/.bin/jest --no-cache || node ./node_modules/jest/bin/jest.js --no-cache
 
       - name: 验证Babel配置
         run: |
           cd minimal-test
 
-          # 安装所有必要的Babel依赖（明确使用npm）
-          npm install --save-dev @babel/plugin-transform-modules-commonjs
+          # 确认jest已安装
+          echo "Jest安装状态:"
+          ls -la node_modules/jest/bin/
 
           # 确认Babel插件已安装
           echo "Babel插件安装状态："
-          npm list @babel/plugin-transform-modules-commonjs
+          ls -la node_modules/@babel/plugin-transform-modules-commonjs/
 
           # 创建明确依赖该插件的配置
           echo 'module.exports = { presets: ["@babel/preset-env"], plugins: ["@babel/plugin-transform-modules-commonjs"] };' > babel.config.js
@@ -117,8 +165,8 @@ jobs:
           # 创建使用ESM语法的测试文件
           echo 'import { expect, test } from "@jest/globals"; test("ESM语法测试", () => { expect(1+1).toBe(2); });' > esm.test.js
 
-          # 运行ESM测试（明确使用npx和npm路径）
-          npx --no-yarn jest esm.test.js --no-cache
+          # 运行ESM测试（直接使用node调用jest）
+          node ./node_modules/jest/bin/jest.js esm.test.js --no-cache
 
       - name: 直接检查模块路径
         run: |
@@ -143,22 +191,23 @@ jobs:
           # 返回主目录
           cd ..
 
-          # 确保使用npm
-          echo "确保使用npm，禁用yarn"
-          corepack disable
-          npm config set ignore-engines true
-
-          # 删除yarn.lock以确保不会触发yarn
-          rm -f yarn.lock
-
-          # 确保只运行简单的非覆盖率测试
+          # 创建非常简单的测试
           echo 'test("根目录简单测试", () => { expect(1+1).toBe(2); });' > root.test.js
+
+          # 创建最精简的package.json
+          echo '{"name":"root-test","private":true}' > package.json
+
+          # 安装所需的最小依赖（明确禁用yarn）
+          export NPM_CONFIG_USERCONFIG="/tmp/.npmrc"
+          npm install --no-package-lock babel-jest @babel/core @babel/preset-env @babel/plugin-transform-modules-commonjs jest
 
           # 创建基本jest配置，禁用覆盖率
           echo 'module.exports = { testEnvironment: "node", collectCoverage: false, transform: { "^.+\\.js$": "babel-jest" } };' > jest.config.js
 
-          # 安装babel-jest（明确使用npm）
-          npm install --save-dev babel-jest @babel/core @babel/preset-env
+          # 显示安装的依赖
+          echo "安装的依赖:"
+          ls -la node_modules/@babel/
+          ls -la node_modules/jest/
 
-          # 使用无覆盖率运行测试（明确使用npx和npm路径）
-          ./node_modules/.bin/jest root.test.js --no-cache --no-coverage || npx --no-yarn jest root.test.js --no-cache --no-coverage
+          # 直接使用node运行jest
+          node ./node_modules/jest/bin/jest.js root.test.js --no-cache --no-coverage
