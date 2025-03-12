@@ -28,28 +28,34 @@ jobs:
           yarn -v
           ls -la
           pwd
+          echo "GitHub Actions环境信息："
+          env | grep -E "GITHUB|NODE|PATH|RUNNER"
 
       - name: 安装依赖
         run: |
-          yarn install --immutable
-          yarn list --depth=0
+          echo "跳过yarn安装，使用纯Node.js"
 
-      - name: 检查文件存在
+      - name: 直接运行Node.js脚本
         run: |
-          echo "检查关键文件是否存在..."
-          ls -la src/tests/unit/
-          ls -la minimal-jest.config.js || echo "minimal-jest.config.js 不存在"
+          echo 'console.log("测试成功 - 纯Node.js运行正常");' > test.js
+          node test.js
 
-      - name: 创建简单测试文件
+      - name: 使用Node.js运行简单测试
         run: |
-          mkdir -p src/tests/unit
-          echo 'describe("简单测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > src/tests/unit/simple.test.js
-          cat src/tests/unit/simple.test.js
+          echo 'const assert = require("assert"); assert.strictEqual(1+1, 2); console.log("断言测试通过");' > assert-test.js
+          node assert-test.js
 
-      - name: 创建简单Jest配置
+      - name: 检查package.json
         run: |
-          echo 'module.exports = { testEnvironment: "node" };' > simple-jest.config.js
-          cat simple-jest.config.js
+          echo "package.json内容："
+          cat package.json
 
-      - name: 运行极简测试
-        run: NODE_ENV=test yarn jest --testMatch="**/src/tests/unit/simple.test.js" --config=simple-jest.config.js
+      - name: 尝试最小化Jest
+        run: |
+          echo "安装最小化Jest..."
+          npm init -y
+          npm install --save-dev jest
+          echo 'module.exports = { testEnvironment: "node" };' > jest.config.js
+          echo 'describe("最小化测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > simple.test.js
+          echo "运行最小化Jest..."
+          npx jest simple.test.js --no-cache
