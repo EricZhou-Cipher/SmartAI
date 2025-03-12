@@ -31,71 +31,80 @@ jobs:
           echo "GitHub Actions环境信息："
           env | grep -E "GITHUB|NODE|PATH|RUNNER"
 
-      - name: 创建极简测试文件
-        run: |
-          mkdir -p src/tests/unit
-          echo 'describe("基本JS测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > src/tests/unit/basic.test.js
-
       - name: 安装依赖
         run: |
           echo "使用yarn安装依赖..."
           yarn install --frozen-lockfile
 
-          echo "在node_modules中创建指定目录结构..."
-          mkdir -p node_modules/@babel/plugin-transform-modules-commonjs/lib
-          echo 'module.exports = function() { return {}; };' > node_modules/@babel/plugin-transform-modules-commonjs/lib/index.js
-          echo '{"name":"@babel/plugin-transform-modules-commonjs","version":"7.24.0"}' > node_modules/@babel/plugin-transform-modules-commonjs/package.json
+          echo "安装ts-jest和相关依赖..."
+          yarn add --dev ts-jest @types/jest typescript
 
-          echo "显示node_modules/@babel目录："
-          ls -la node_modules/@babel/
+          echo "显示已安装的依赖版本："
+          yarn list | grep -E "jest|babel|typescript"
 
-      - name: 创建极简babel配置
+      - name: 创建测试文件
         run: |
-          cat > babel.config.js << 'EOF'
-          module.exports = {
-            presets: [
-              ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
-              '@babel/preset-typescript'
-            ],
-            plugins: [
-              '@babel/plugin-transform-runtime',
-              '@babel/plugin-transform-modules-commonjs'
-            ]
-          };
-          EOF
-          echo "创建的babel.config.js内容："
-          cat babel.config.js
+          mkdir -p src/tests/unit
+          echo 'describe("基本JS测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > src/tests/unit/basic.test.js
+          echo 'describe("基本TS测试", () => { test("1+1=2", () => { expect(1+1).toBe(2); }); });' > src/tests/unit/basic.test.ts
 
-      - name: 创建极简jest配置
+      - name: 创建tsconfig.json
+        run: |
+          cat > tsconfig.json << 'EOF'
+          {
+            "compilerOptions": {
+              "target": "ES2018",
+              "module": "CommonJS",
+              "moduleResolution": "node",
+              "esModuleInterop": true,
+              "strict": true,
+              "skipLibCheck": true,
+              "forceConsistentCasingInFileNames": true,
+              "outDir": "dist",
+              "declaration": true,
+              "sourceMap": true
+            },
+            "include": ["src/**/*"],
+            "exclude": ["node_modules", "dist"]
+          }
+          EOF
+          echo "创建的tsconfig.json内容："
+          cat tsconfig.json
+
+      - name: 创建jest.config.js
         run: |
           cat > jest.config.js << 'EOF'
+          /** @type {import('ts-jest').JestConfigWithTsJest} */
           module.exports = {
+            preset: 'ts-jest',
             testEnvironment: 'node',
             transform: {
-              '^.+\\.(js|jsx)$': ['babel-jest', { configFile: './babel.config.js' }]
+              '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
             },
-            moduleFileExtensions: ['js', 'json', 'node'],
-            testMatch: ['**/tests/unit/**/*.test.js'],
-            verbose: true,
-            modulePaths: ['<rootDir>/node_modules'],
-            moduleDirectories: ['node_modules']
+            moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+            testMatch: ['**/tests/**/*.test.ts', '**/tests/**/*.test.js'],
+            moduleNameMapper: {
+              '^@/(.*)$': '<rootDir>/$1'
+            }
           };
           EOF
           echo "创建的jest.config.js内容："
           cat jest.config.js
 
-      - name: 验证包安装
+      - name: 显示Jest配置
         run: |
-          echo "验证关键依赖安装："
-          node -e "console.log('模块路径:', module.paths)"
-          node -e "try { console.log('@babel/plugin-transform-modules-commonjs 路径:', require.resolve('@babel/plugin-transform-modules-commonjs')); } catch(e) { console.error('未找到模块:', e.message); }"
+          echo "显示Jest配置信息..."
+          yarn jest --showConfig
 
-          echo "手动创建的模块信息："
-          ls -la node_modules/@babel/plugin-transform-modules-commonjs/
-          cat node_modules/@babel/plugin-transform-modules-commonjs/package.json
+      - name: 运行测试
+        run: |
+          echo "运行TypeScript测试..."
+          yarn jest src/tests/unit/basic.test.ts --no-cache --verbose
 
-          echo "测试直接导入模块:"
-          node -e "try { const plugin = require('@babel/plugin-transform-modules-commonjs'); console.log('导入成功，插件类型:', typeof plugin); } catch(e) { console.error('导入失败:', e.message); }"
+          echo "运行JavaScript测试..."
+          yarn jest src/tests/unit/basic.test.js --no-cache --verbose
+        env:
+          NODE_ENV: test
 
       - name: 启用SSH调试（无论成功或失败）
         uses: mxschmitt/action-tmate@v3
