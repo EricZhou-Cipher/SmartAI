@@ -22,10 +22,8 @@ module.exports = {
   moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
-  // 关键配置：确保@babel/plugin-transform-modules-commonjs不被忽略
-  transformIgnorePatterns: [
-    '/node_modules/(?!(@babel|@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|prom-client)/)',
-  ],
+  // 完全禁用transformIgnorePatterns，确保所有文件都被转换
+  transformIgnorePatterns: [],
   // 添加额外设置以确保正确收集覆盖率
   collectCoverage: false,
   coverageReporters: ['text', 'lcov', 'clover'],
@@ -47,4 +45,10 @@ module.exports = {
   },
   // 添加setup文件
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  // 添加模块目录，确保能找到@babel/plugin-transform-modules-commonjs
+  modulePaths: ['<rootDir>/node_modules'],
+  // 添加模块名称映射
+  moduleNameMapper: {
+    '^@babel/plugin-transform-modules-commonjs$': '<rootDir>/node_modules/@babel/plugin-transform-modules-commonjs',
+  },
 };
