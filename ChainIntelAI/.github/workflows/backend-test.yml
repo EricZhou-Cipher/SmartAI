@@ -51,170 +51,130 @@ jobs:
           cache: "yarn"
           cache-dependency-path: backend/yarn.lock
 
-      - name: 安装依赖
+      - name: 清理环境
         run: |
-          echo "安装依赖..."
-          if [ -d "node_modules" ]; then
-            rm -rf node_modules
-          fi
-          yarn install --frozen-lockfile
+          echo "清理环境..."
+          rm -rf package-lock.json yarn.lock node_modules
+          rm -f babel.config.js babel.config.cjs .babelrc jest.config.js jest.config.cjs
 
-      - name: 安装关键Babel依赖
+      - name: 手动安装Babel依赖
         run: |
-          echo "安装关键Babel依赖..."
-          yarn add @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 @babel/plugin-transform-runtime@7.24.0 @babel/preset-typescript@7.23.3 @babel/plugin-proposal-class-properties@7.18.6 @babel/plugin-proposal-object-rest-spread@7.20.7 --dev --exact
-          yarn global add @babel/cli@7.24.0
+          echo "手动安装关键Babel依赖..."
+          npm install @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 @babel/plugin-transform-runtime@7.24.0 @babel/preset-typescript@7.23.3 --save-dev
+          npm install @babel/plugin-proposal-class-properties@7.18.6 @babel/plugin-proposal-object-rest-spread@7.20.7 --save-dev
+          npm install -g @babel/cli@7.24.0
 
-      - name: 创建babel.config.cjs
+      - name: 检查依赖安装
         run: |
-          echo "创建babel.config.cjs..."
-          cat > babel.config.cjs << 'EOL'
+          echo "检查依赖安装..."
+          npm list @babel/plugin-transform-modules-commonjs
+          npm list @babel/core
+          npm list babel-jest
+
+      - name: 设置配置文件
+        run: |
+          echo "创建babel.config.js..."
+          cat > babel.config.js << 'EOL'
           module.exports = {
             presets: [
               ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
               '@babel/preset-typescript'
             ],
             plugins: [
-              ['@babel/plugin-transform-modules-commonjs', { strictMode: true }],
+              '@babel/plugin-transform-modules-commonjs',
               '@babel/plugin-transform-runtime',
               '@babel/plugin-proposal-class-properties',
               '@babel/plugin-proposal-object-rest-spread'
-            ],
-            env: {
-              test: {
-                presets: [
-                  ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
-                  '@babel/preset-typescript'
-                ],
-                plugins: [
-                  ['@babel/plugin-transform-modules-commonjs', { strictMode: true }],
-                  '@babel/plugin-transform-runtime',
-                  '@babel/plugin-proposal-class-properties',
-                  '@babel/plugin-proposal-object-rest-spread'
-                ]
-              }
-            }
+            ]
           };
           EOL
 
-      - name: 创建jest.config.cjs
-        run: |
-          echo "创建jest.config.cjs..."
-          cat > jest.config.cjs << 'EOL'
+          echo "创建jest.config.js..."
+          cat > jest.config.js << 'EOL'
           module.exports = {
             testEnvironment: 'node',
             transform: {
-              '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.config.cjs' }],
+              '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.config.js' }],
             },
             moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
             testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
             coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
             transformIgnorePatterns: [
-              '/node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|@babel/plugin-transform-modules-commonjs|prom-client)/)',
+              '/node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|prom-client)/)',
             ],
-            setupFilesAfterEnv: ['./jest.setup.js'],
             testTimeout: 30000,
             verbose: true,
             forceExit: true,
             detectOpenHandles: true,
-            globals: {
-              'ts-jest': {
-                isolatedModules: true,
-                useESM: false,
-              },
-            },
-            moduleNameMapper: {
-              '^@/(.*)$': '<rootDir>/src/$1',
-            },
           };
           EOL
 
-      - name: 创建jest.setup.js
-        run: |
-          echo "创建jest.setup.js..."
-          cat > jest.setup.js << 'EOL'
-          // Jest全局设置文件
-          console.log('Jest设置文件加载中...');
-
-          // 设置较长的超时时间
-          jest.setTimeout(30000);
-
-          // 任何全局模拟和设置都可以在这里添加
-          process.env.NODE_ENV = 'test';
+          echo "创建.npmrc文件..."
+          cat > .npmrc << 'EOL'
+          registry=https://registry.npmjs.org/
+          @babel:registry=https://registry.npmjs.org/
+          legacy-peer-deps=true
+          prefer-offline=true
           EOL
 
-      - name: 显示node_modules内容
+      - name: 创建简单测试文件
         run: |
-          echo "检查node_modules内容..."
-          ls -la node_modules/@babel || echo "@babel目录不存在"
-          ls -la node_modules/@babel/plugin-transform-modules-commonjs || echo "plugin-transform-modules-commonjs目录不存在"
-          echo "检查软件包版本..."
-          yarn list --pattern "@babel/plugin-transform-modules-commonjs"
-          yarn list --pattern "@babel/core"
-          yarn list --pattern "babel-jest"
+          echo "创建简单测试文件..."
+          mkdir -p src/tests/unit
+          cat > src/tests/unit/simple.test.js << 'EOL'
+          describe('简单测试', () => {
+            it('应该通过', () => {
+              expect(true).toBe(true);
+            });
+          });
+          EOL
 
-      - name: 检查核心依赖
+      - name: 验证模块可用性
         run: |
-          echo "检查核心依赖..."
+          echo "验证模块可用性..."
           node -e "
             try {
-              const pluginPath = require.resolve('@babel/plugin-transform-modules-commonjs');
-              console.log('插件路径:', pluginPath);
+              console.log('检查 @babel/plugin-transform-modules-commonjs...');
               const plugin = require('@babel/plugin-transform-modules-commonjs');
-              console.log('插件已成功加载:', typeof plugin);
+              console.log('模块类型:', typeof plugin);
+              
+              console.log('检查 @babel/core...');
               const babel = require('@babel/core');
               console.log('Babel版本:', babel.version);
-              const jest = require('jest');
-              console.log('Jest已成功加载');
+              
+              console.log('检查 babel-jest...');
               const babelJest = require('babel-jest');
-              console.log('babel-jest已成功加载');
+              console.log('babel-jest已加载');
+              
+              console.log('所有模块加载成功!');
             } catch(e) {
-              console.error('加载失败:', e.message);
+              console.error('模块加载失败:', e.message);
+              console.error('错误堆栈:', e.stack);
               process.exit(1);
             }
           "
 
-      - name: 运行单个测试以验证配置
+      - name: 运行简单测试
         run: |
-          echo "运行单个测试..."
-          TEST_FILE=$(find src/tests/unit -name "*.test.js" -o -name "*.test.ts" | head -1)
-          if [ -n "$TEST_FILE" ]; then
-            echo "测试文件: $TEST_FILE"
-            BABEL_ENV=test NODE_OPTIONS="--max-old-space-size=4096 --trace-warnings" npx jest --no-cache --runInBand --verbose $TEST_FILE
-          else
-            echo "未找到测试文件"
-            # 创建一个简单的测试文件
-            mkdir -p src/tests/unit
-            cat > src/tests/unit/simple.test.js << 'EOL'
-            describe('简单测试', () => {
-              it('应该通过', () => {
-                expect(true).toBe(true);
-              });
-            });
-            EOL
-            BABEL_ENV=test NODE_OPTIONS="--max-old-space-size=4096 --trace-warnings" npx jest --no-cache --runInBand --verbose src/tests/unit/simple.test.js
-          fi
+          echo "运行简单测试..."
+          npx jest src/tests/unit/simple.test.js --verbose
         env:
           CI: true
           NODE_ENV: test
-          JWT_SECRET: test_secret
-          MONGO_URI: mongodb://localhost:27017/chainintelai_test
           DEBUG: "jest,jest-worker,babel:*"
-          BABEL_ENV: test
-          NODE_PATH: ./node_modules
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: 运行所有测试
         run: |
           echo "运行所有测试..."
-          BABEL_ENV=test NODE_OPTIONS="--max-old-space-size=4096 --trace-warnings" npx jest --no-cache --runInBand --verbose
+          npx jest --verbose
         env:
           CI: true
           NODE_ENV: test
           JWT_SECRET: test_secret
           MONGO_URI: mongodb://localhost:27017/chainintelai_test
           DEBUG: "jest,jest-worker,babel:*"
-          BABEL_ENV: test
-          NODE_PATH: ./node_modules
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: 上传测试覆盖率报告
         uses: actions/upload-artifact@v3
