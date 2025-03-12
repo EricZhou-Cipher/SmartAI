@@ -51,36 +51,30 @@ jobs:
           cache: "yarn"
           cache-dependency-path: backend/yarn.lock
 
-      - name: 清理node_modules并安装依赖
+      - name: 安装依赖
         run: |
+          echo "安装依赖..."
           if [ -d "node_modules" ]; then
             rm -rf node_modules
           fi
           yarn install --frozen-lockfile
 
-      - name: 全局安装Babel插件
+      - name: 安装显式包依赖
         run: |
-          npm install -g @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 @babel/cli@7.24.0 @babel/plugin-transform-runtime@7.24.0 @babel/plugin-proposal-class-properties@7.18.6 @babel/plugin-proposal-object-rest-spread@7.20.7
+          echo "安装显式包依赖..."
+          npm install -g @babel/cli@7.24.0
+          yarn add @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 --dev --exact
 
-      - name: 在项目中安装Babel插件
+      - name: 验证依赖安装
         run: |
-          yarn add --dev @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 @babel/cli@7.24.0 @babel/plugin-transform-runtime@7.24.0 @babel/plugin-proposal-class-properties@7.18.6 @babel/plugin-proposal-object-rest-spread@7.20.7 --exact
+          echo "验证依赖安装..."
+          node -e "try { require('@babel/plugin-transform-modules-commonjs'); console.log('Babel插件已成功安装'); } catch(e) { console.error('插件安装失败:', e.message); process.exit(1); }"
+          node -e "try { const babel = require('@babel/core'); console.log('Babel核心已成功安装, 版本:', babel.version); } catch(e) { console.error('Babel核心安装失败:', e.message); process.exit(1); }"
 
-      - name: 检查Babel插件安装情况
+      - name: 设置Babel配置
         run: |
-          echo "检查babel插件安装路径和版本:"
-          ls -la node_modules/@babel/plugin-transform-modules-commonjs || echo "目录不存在"
-          yarn why @babel/plugin-transform-modules-commonjs || echo "包不可见"
-          npm list -g @babel/plugin-transform-modules-commonjs || echo "全局包不可见"
-          npm list @babel/plugin-transform-modules-commonjs || echo "本地包不可见"
-          which babel || echo "babel命令不可用"
-          node -e "try { console.log('Babel插件已安装:', require.resolve('@babel/plugin-transform-modules-commonjs')); } catch(e) { console.error('无法解析Babel插件:', e.message); }"
-
-      # 验证babel.config.cjs是否存在并创建一个简单的版本
-      - name: 确保Babel配置正确
-        run: |
-          echo "确保Babel配置存在并正确"
-          cat > babel.config.cjs << EOL
+          echo "设置Babel配置..."
+          cat > babel.config.js << 'EOL'
           module.exports = {
             presets: [
               ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
@@ -94,17 +88,15 @@ jobs:
             ]
           };
           EOL
-          cat babel.config.cjs
 
-      # 更新Jest配置
-      - name: 更新Jest配置
+      - name: 设置Jest配置
         run: |
-          echo "更新Jest配置以解决依赖转换问题"
-          cat > jest.config.cjs << EOL
+          echo "设置Jest配置..."
+          cat > jest.config.js << 'EOL'
           module.exports = {
             testEnvironment: 'node',
             transform: {
-              '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.config.cjs' }],
+              '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.config.js' }],
             },
             moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
             testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
@@ -122,21 +114,14 @@ jobs:
             },
           };
           EOL
-          cat jest.config.cjs
 
-      # 检查是否有测试源文件
-      - name: 检查测试文件
-        run: |
-          find tests -name "*.test.js" -o -name "*.test.ts" | sort
-          find src -name "*.test.js" -o -name "*.test.ts" | sort
-
-      # 先运行一个特定测试看看是否成功
       - name: 运行单个测试
         run: |
+          echo "运行单个测试..."
           TEST_FILE=$(find src/tests/unit/profiling -name "*.test.js" -o -name "*.test.ts" | head -1)
           if [ -n "$TEST_FILE" ]; then
-            echo "尝试运行单个测试: $TEST_FILE"
-            NODE_OPTIONS=--max-old-space-size=4096 npx jest --no-cache --runInBand --verbose --config=jest.config.cjs $TEST_FILE
+            echo "测试文件: $TEST_FILE"
+            NODE_OPTIONS=--max-old-space-size=4096 npx jest --no-cache --runInBand --verbose $TEST_FILE
           else
             echo "未找到测试文件"
           fi
@@ -147,9 +132,12 @@ jobs:
           MONGO_URI: mongodb://localhost:27017/chainintelai_test
           DEBUG: "jest,jest-worker"
           BABEL_ENV: test
+          NODE_PATH: ./node_modules
 
-      - name: 运行测试
-        run: NODE_OPTIONS=--max-old-space-size=4096 npx jest --no-cache --runInBand --verbose --config=jest.config.cjs
+      - name: 运行所有测试
+        run: |
+          echo "运行所有测试..."
+          NODE_OPTIONS=--max-old-space-size=4096 npx jest --no-cache --runInBand --verbose
         env:
           CI: true
           NODE_ENV: test
@@ -157,6 +145,7 @@ jobs:
           MONGO_URI: mongodb://localhost:27017/chainintelai_test
           DEBUG: "jest,jest-worker"
           BABEL_ENV: test
+          NODE_PATH: ./node_modules
 
       - name: 上传测试覆盖率报告
         uses: actions/upload-artifact@v3
