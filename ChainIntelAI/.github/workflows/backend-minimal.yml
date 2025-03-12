@@ -57,74 +57,42 @@ jobs:
           echo "清理node_modules缓存..."
           rm -rf node_modules/.cache || true
 
-      - name: 创建完整的Babel配置
+      - name: 显示现有配置文件
         run: |
-          cat > babel.config.js << 'EOF'
-          console.log('Babel配置被加载，当前目录:', __dirname);
+          echo "显示现有的babel.config.js内容："
+          cat babel.config.js || echo "babel.config.js不存在"
 
-          module.exports = {
-            presets: [
-              ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
-              '@babel/preset-typescript'
-            ],
-            plugins: [
-              '@babel/plugin-transform-modules-commonjs',
-              '@babel/plugin-transform-runtime'
-            ]
-          };
-          EOF
+          echo "显示现有的jest.config.js内容："
+          cat jest.config.js || echo "jest.config.js不存在"
 
-          echo "Babel配置内容："
-          cat babel.config.js
-
-      - name: 创建完整的Jest配置
-        run: |
-          cat > jest.config.js << 'EOF'
-          console.log('Jest配置被加载，当前目录:', __dirname);
-          console.log('Jest解析的Babel配置路径:', require.resolve('@babel/core', { paths: [__dirname] }));
-          console.log('Jest解析的Jest配置路径:', __filename);
-
-          module.exports = {
-            testEnvironment: 'node',
-            transform: {
-              '^.+\\.(ts|tsx|js|jsx)$': ['babel-jest', { configFile: './babel.config.js' }]
-            },
-            moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-            transformIgnorePatterns: [],
-            modulePathIgnorePatterns: ['<rootDir>/dist/'],
-            testPathIgnorePatterns: ['/node_modules/'],
-            verbose: true,
-            testTimeout: 30000,
-            forceExit: true
-          };
-          EOF
-
-          echo "Jest配置内容："
-          cat jest.config.js
+          echo "显示现有的tsconfig.json内容："
+          cat tsconfig.json || echo "tsconfig.json不存在"
 
       - name: 创建TypeScript配置
         run: |
-          cat > tsconfig.json << 'EOF'
-          {
-            "compilerOptions": {
-              "target": "ES6",
-              "module": "CommonJS",
-              "moduleResolution": "node",
-              "esModuleInterop": true,
-              "strict": true,
-              "skipLibCheck": true,
-              "forceConsistentCasingInFileNames": true,
-              "outDir": "dist",
-              "declaration": true,
-              "sourceMap": true
-            },
-            "include": ["src/**/*"],
-            "exclude": ["node_modules", "dist"]
-          }
-          EOF
-
-          echo "TypeScript配置内容："
-          cat tsconfig.json
+          if [ ! -f "tsconfig.json" ]; then
+            cat > tsconfig.json << 'EOF'
+            {
+              "compilerOptions": {
+                "target": "ES6",
+                "module": "CommonJS",
+                "moduleResolution": "node",
+                "esModuleInterop": true,
+                "strict": true,
+                "skipLibCheck": true,
+                "forceConsistentCasingInFileNames": true,
+                "outDir": "dist",
+                "declaration": true,
+                "sourceMap": true
+              },
+              "include": ["src/**/*"],
+              "exclude": ["node_modules", "dist"]
+            }
+            EOF
+            echo "创建了新的tsconfig.json"
+          else
+            echo "使用现有的tsconfig.json"
+          fi
 
       - name: 创建简单测试文件
         run: |
