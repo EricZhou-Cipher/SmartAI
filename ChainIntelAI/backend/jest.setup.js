@@ -13,6 +13,7 @@ process.on('unhandledRejection', (error) => {
 
 // 环境变量设置
 process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = 'test_secret';
 process.env.MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chainintelai_test';
 process.env.REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 process.env.REDIS_PORT = process.env.REDIS_PORT || '6379';
@@ -224,3 +225,9 @@ global.testUtils = {
   consoleWarnings,
   waitForPromises: () => new Promise((resolve) => setImmediate(resolve)),
 };
+
+// 全局清理
+afterAll(async () => {
+  // 确保所有异步操作完成
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});

@@ -69,9 +69,7 @@ jobs:
 
       - name: 运行单元测试
         run: |
-          yarn jest src/tests/unit/monitoring/basic-telemetry.test.ts --no-cache --no-transform
-          yarn jest src/tests/unit/monitoring/simple-telemetry.test.ts --no-cache --no-transform
-          yarn jest src/tests/unit/monitoring/functional-telemetry.test.ts --no-cache --no-transform
+          yarn test:telemetry:ci
         env:
           NODE_ENV: test
 
@@ -122,7 +120,7 @@ jobs:
 
       - name: 运行集成测试
         run: |
-          yarn jest src/tests/integration/monitoring/telemetry-integration.test.ts --no-cache --no-transform
+          yarn test:integration
         env:
           NODE_ENV: test
           MONGODB_URI: mongodb://localhost:27017/chainIntelAI_test
@@ -156,7 +154,7 @@ jobs:
 
       - name: 运行性能测试
         run: |
-          yarn jest src/tests/performance/monitoring/telemetry-performance.test.ts --no-cache --no-transform
+          yarn jest src/tests/performance/monitoring/telemetry-performance.test.ts --config=jest.config.cjs
         env:
           NODE_ENV: test
 
