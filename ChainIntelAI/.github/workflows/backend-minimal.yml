@@ -31,16 +31,23 @@ jobs:
           echo "GitHub Actions环境信息："
           env | grep -E "GITHUB|NODE|PATH|RUNNER"
 
-      - name: 检查和升级Jest相关依赖
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile --verbose
+
+      - name: 验证包安装
         run: |
-          echo "当前Jest相关依赖版本："
-          yarn list jest @babel/core babel-jest @babel/plugin-transform-modules-commonjs
+          echo "验证关键依赖安装："
+          node -e "console.log('@babel/plugin-transform-modules-commonjs 版本:', require('@babel/plugin-transform-modules-commonjs/package.json').version)"
+          node -e "console.log('@babel/core 版本:', require('@babel/core/package.json').version)"
+          node -e "console.log('babel-jest 版本:', require('babel-jest/package.json').version)"
+          node -e "console.log('jest 版本:', require('jest/package.json').version)"
 
-          echo "升级Jest相关依赖到最新版本："
-          yarn add --dev jest@latest @babel/core@latest babel-jest@latest @babel/preset-env@latest @babel/preset-typescript@latest @babel/plugin-transform-modules-commonjs@latest @babel/runtime@latest @babel/plugin-transform-runtime@latest @babel/cli@latest
-
-          echo "升级后的版本："
-          yarn list jest @babel/core babel-jest @babel/plugin-transform-modules-commonjs
+      - name: 检查 node_modules
+        run: |
+          echo "检查 @babel 目录："
+          ls -la node_modules/@babel
+          echo "检查 plugin-transform-modules-commonjs 目录："
+          ls -la node_modules/@babel/plugin-transform-modules-commonjs || echo "目录不存在"
 
       - name: 清理缓存
         run: |
@@ -140,21 +147,6 @@ jobs:
         run: |
           echo "package.json内容："
           cat package.json
-
-      - name: 手动测试Babel编译
-        run: |
-          echo "手动测试Babel编译TypeScript文件..."
-          yarn babel src/tests/unit/basic.test.ts --out-file compiled.js --verbose
-
-          echo "编译结果："
-          cat compiled.js
-
-      - name: 运行Jest Debug模式
-        run: |
-          echo "运行Jest Debug模式..."
-          NODE_OPTIONS="--inspect-brk=0.0.0.0:9229" yarn jest src/tests/unit/basic.test.js --no-cache --verbose --debug || true
-
-          echo "Jest Debug模式完成"
 
       - name: 运行简单测试
         run: |
