@@ -60,7 +60,7 @@ jobs:
 
       - name: 显式安装Babel插件和相关依赖
         run: |
-          yarn add --dev @babel/core@7.22.5 @babel/preset-env@7.22.5 @babel/plugin-transform-modules-commonjs@7.22.5 babel-jest@29.5.0 @babel/cli@7.22.5 --exact
+          yarn add --dev @babel/core@7.24.0 @babel/preset-env@7.24.0 @babel/plugin-transform-modules-commonjs@7.26.3 babel-jest@29.7.0 @babel/cli@7.24.0 @babel/plugin-transform-runtime@7.24.0 @babel/plugin-proposal-class-properties@7.18.6 @babel/plugin-proposal-object-rest-spread@7.20.7 --exact
 
       - name: 检查Babel插件安装情况
         run: |
@@ -68,6 +68,13 @@ jobs:
           ls -la node_modules/@babel/plugin-transform-modules-commonjs
           yarn why @babel/plugin-transform-modules-commonjs
           node -e "console.log('Babel插件已安装:', require.resolve('@babel/plugin-transform-modules-commonjs'))"
+
+      # 更新Jest配置
+      - name: 更新Jest配置
+        run: |
+          echo "更新Jest配置以解决依赖转换问题"
+          sed -i 's|/node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise)/)|/node_modules/(?!(@opentelemetry|ethers|uuid|zod|mongoose|axios|redis|ioredis|telegraf|ts-retry-promise|@babel/plugin-transform-modules-commonjs|prom-client)/)|g' jest.config.cjs
+          sed -i '/ignore: \["node_modules"\]/d' babel.config.cjs
 
       # 检查是否有测试源文件
       - name: 检查测试文件
@@ -89,7 +96,7 @@ jobs:
       # 先运行一个特定测试看看是否成功
       - name: 运行单个测试
         run: |
-          TEST_FILE=$(find tests -name "*.test.js" -o -name "*.test.ts" | head -1)
+          TEST_FILE=$(find src/tests/unit/profiling -name "*.test.js" -o -name "*.test.ts" | head -1)
           if [ -n "$TEST_FILE" ]; then
             echo "尝试运行单个测试: $TEST_FILE"
             NODE_OPTIONS=--max-old-space-size=4096 yarn jest --no-cache --runInBand --verbose --config=jest.config.cjs $TEST_FILE
