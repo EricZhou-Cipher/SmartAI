@@ -88,8 +88,8 @@ const cacheHitRatio = new Gauge({
   help: 'Cache hit ratio',
   labelNames: ['cache_type'],
   collect() {
-    const redisHits = cacheHitCounter.labels('redis').get();
-    const redisMisses = cacheMissCounter.labels('redis').get();
+    const redisHits = (cacheHitCounter.labels('redis') as any).get ? (cacheHitCounter.labels('redis') as any).get() : 0;
+    const redisMisses = (cacheMissCounter.labels('redis') as any).get ? (cacheMissCounter.labels('redis') as any).get() : 0;
     const total = redisHits + redisMisses;
     
     if (total > 0) {
@@ -133,7 +133,7 @@ async function sendPerformanceAlert(alertType: string, value: number, threshold:
   const now = Date.now();
   
   // 检查是否在冷却期内
-  if (now - lastAlertTime < PERFORMANCE_THRESHOLDS.ALERT_COOLDOWN_MS) {
+  if (now - lastAlertTime < (PERFORMANCE_THRESHOLDS as any).ALERT_COOLDOWN_MS) {
     return;
   }
   
@@ -143,12 +143,12 @@ async function sendPerformanceAlert(alertType: string, value: number, threshold:
   // 记录告警日志
   logger.warn(`性能告警: ${alertType} (${value}) 超过阈值 (${threshold})`, details);
   
-  const alertMessage = `⚠️ *性能告警*\n*类型*: ${alertType}\n*当前值*: ${value}\n*阈值*: ${threshold}\n*环境*: ${config.env}\n*时间*: ${new Date().toISOString()}`;
+  const alertMessage = `⚠️ *性能告警*\n*类型*: ${alertType}\n*当前值*: ${value}\n*阈值*: ${threshold}\n*环境*: ${(config as any).env}\n*时间*: ${new Date().toISOString()}`;
   
   // 发送Slack告警
   try {
-    if (config.notifications?.slack?.enabled) {
-      const slackClient = new SlackClient(config.notifications.slack.webhookUrl);
+    if ((config as any).notifications?.slack?.enabled) {
+      const slackClient = new SlackClient((config as any).notifications.slack.webhookUrl);
       await slackClient.send({
         text: `⚠️ 性能告警: ${alertType} (${value}) 超过阈值 (${threshold})`,
         blocks: [
@@ -162,41 +162,41 @@ async function sendPerformanceAlert(alertType: string, value: number, threshold:
         ]
       });
     }
-  } catch (error) {
-    logger.error('发送Slack告警失败', error);
+  } catch (error: any) {
+    logger.error('发送Slack告警失败', { error: error.message });
   }
   
   // 发送Telegram告警
   try {
-    if (config.notifications?.telegram?.enabled) {
+    if ((config as any).notifications?.telegram?.enabled) {
       const telegramBot = new TelegramBot(
-        config.notifications.telegram.token,
-        config.notifications.telegram.chatId
+        (config as any).notifications.telegram.token,
+        (config as any).notifications.telegram.chatId
       );
       await telegramBot.sendMessage(alertMessage);
     }
-  } catch (error) {
-    logger.error('发送Telegram告警失败', error);
+  } catch (error: any) {
+    logger.error('发送Telegram告警失败', { error: error.message });
   }
   
   // 发送Email告警
   try {
-    if (config.notifications?.email?.enabled) {
-      const emailSender = new EmailSender(config.notifications.email);
+    if ((config as any).notifications?.email?.enabled) {
+      const emailSender = new EmailSender((config as any).notifications.email);
       await emailSender.sendEmail({
-        subject: `[${config.env}] 性能告警: ${alertType}`,
+        subject: `[${(config as any).env}] 性能告警: ${alertType}`,
         text: alertMessage,
         html: `<h2>性能告警</h2>
                <p><strong>类型:</strong> ${alertType}</p>
                <p><strong>当前值:</strong> ${value}</p>
                <p><strong>阈值:</strong> ${threshold}</p>
-               <p><strong>环境:</strong> ${config.env}</p>
+               <p><strong>环境:</strong> ${(config as any).env}</p>
                <p><strong>时间:</strong> ${new Date().toISOString()}</p>
                <p><strong>详情:</strong> ${JSON.stringify(details)}</p>`
       });
     }
-  } catch (error) {
-    logger.error('发送Email告警失败', error);
+  } catch (error: any) {
+    logger.error('发送Email告警失败', { error: error.message });
   }
 }
 
@@ -219,8 +219,8 @@ export function performanceMonitor() {
     const errorRate = requestCount > 0 ? (errorCount / requestCount) * 100 : 0;
     
     // 计算缓存命中率
-    const redisHits = cacheHitCounter.labels('redis').get();
-    const redisMisses = cacheMissCounter.labels('redis').get();
+    const redisHits = (cacheHitCounter.labels('redis') as any).get ? (cacheHitCounter.labels('redis') as any).get() : 0;
+    const redisMisses = (cacheMissCounter.labels('redis') as any).get ? (cacheMissCounter.labels('redis') as any).get() : 0;
     const cacheTotal = redisHits + redisMisses;
     const cacheHitRatioValue = cacheTotal > 0 ? redisHits / cacheTotal : 1;
     
@@ -256,8 +256,8 @@ export function performanceMonitor() {
       cacheHitRatio: cacheHitRatioValue,
       dbP95Latencies,
       activeConnections: {
-        mongodb: activeConnections.labels('mongodb').get(),
-        redis: activeConnections.labels('redis').get()
+        mongodb: (activeConnections.labels('mongodb') as any).get ? (activeConnections.labels('mongodb') as any).get() : 0,
+        redis: (activeConnections.labels('redis') as any).get ? (activeConnections.labels('redis') as any).get() : 0
       }
     });
   }, 60 * 1000);
@@ -356,8 +356,8 @@ export function getPerformanceStats() {
   
   const errorRate = requestCount > 0 ? (errorCount / requestCount) * 100 : 0;
   
-  const redisHits = cacheHitCounter.labels('redis').get();
-  const redisMisses = cacheMissCounter.labels('redis').get();
+  const redisHits = (cacheHitCounter.labels('redis') as any).get ? (cacheHitCounter.labels('redis') as any).get() : 0;
+  const redisMisses = (cacheMissCounter.labels('redis') as any).get ? (cacheMissCounter.labels('redis') as any).get() : 0;
   const cacheTotal = redisHits + redisMisses;
   const cacheHitRatioValue = cacheTotal > 0 ? redisHits / cacheTotal : 1;
   
@@ -375,9 +375,9 @@ export function getPerformanceStats() {
     cacheHitRatio: cacheHitRatioValue,
     dbLatency: dbP95Latencies,
     activeConnections: {
-      mongodb: activeConnections.labels('mongodb').get(),
-      redis: activeConnections.labels('redis').get(),
-      http: activeConnections.labels('http').get()
+      mongodb: (activeConnections.labels('mongodb') as any).get ? (activeConnections.labels('mongodb') as any).get() : 0,
+      redis: (activeConnections.labels('redis') as any).get ? (activeConnections.labels('redis') as any).get() : 0,
+      http: (activeConnections.labels('http') as any).get ? (activeConnections.labels('http') as any).get() : 0
     },
     requestCount,
     errorCount

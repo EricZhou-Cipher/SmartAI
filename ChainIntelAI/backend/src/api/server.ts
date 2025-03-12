@@ -35,7 +35,7 @@ app.use(helmet());
 app.use(cors());
 
 // 压缩中间件
-app.use(compression());
+app.use(compression() as any);
 
 // 性能监控中间件
 app.use(performanceMonitor());
@@ -87,9 +87,14 @@ app.post('/analyze', async (req: Request, res: Response) => {
   }
 
   try {
-    // 处理事件
-    const result = await pipeline.processEvent({
-      ...transaction,
+    // 处理交易
+    const result: any = await pipeline.processEvent({
+      transactionHash: transaction.transactionHash,
+      from: transaction.from,
+      to: transaction.to,
+      value: transaction.value,
+      data: transaction.data,
+      chainId: transaction.chainId,
       type: transaction.type || 'TRANSFER',
       timestamp: transaction.timestamp || Math.floor(Date.now() / 1000),
       traceId: transaction.transactionHash
@@ -99,7 +104,7 @@ app.post('/analyze', async (req: Request, res: Response) => {
     const processingTimeMs = Date.now() - startTime;
 
     // 返回风险分析结果
-    if (result && result.riskAnalysis) {
+    if (result && typeof result === 'object' && 'riskAnalysis' in result) {
       const { score, level, factors } = result.riskAnalysis;
       
       const response: any = {
@@ -169,16 +174,21 @@ app.post('/analyze/batch', async (req: Request, res: Response) => {
             };
           }
 
-          // 处理事件
-          const result = await pipeline.processEvent({
-            ...transaction,
+          // 处理交易
+          const result: any = await pipeline.processEvent({
+            transactionHash: transaction.transactionHash,
+            from: transaction.from,
+            to: transaction.to,
+            value: transaction.value,
+            data: transaction.data,
+            chainId: transaction.chainId,
             type: transaction.type || 'TRANSFER',
             timestamp: transaction.timestamp || Math.floor(Date.now() / 1000),
             traceId: transaction.transactionHash
           });
 
           // 返回风险分析结果
-          if (result && result.riskAnalysis) {
+          if (result && typeof result === 'object' && 'riskAnalysis' in result) {
             const { score, level, factors } = result.riskAnalysis;
             
             const response: any = {
