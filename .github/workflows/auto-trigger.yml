@@ -1,101 +1,64 @@
 name: 自动触发测试 (Auto-Trigger Test)
 
 on:
-  push:
-    branches: [main]
+  # 改为手动触发和定时运行，而不是每次推送都运行
+  workflow_dispatch: # 手动触发
+  schedule:
+    - cron: "0 0 * * 1" # 每周一午夜运行
 
 jobs:
   auto_test:
+    name: 自动测试
     runs-on: ubuntu-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v3
+      - name: 🚀 检出代码
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: 设置 Node.js
-        uses: actions/setup-node@v3
+      - name: 📦 设置 Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "18"
-          # 移除缓存配置，使用fresh install
+          cache: "npm"
 
-      - name: 清除缓存
-        run: |
-          echo "清除缓存..."
-          rm -rf node_modules || true
-          rm -rf ~/.npm || true
-          echo "✅ 缓存已清除"
-
-      - name: 显示环境信息
+      - name: 📋 显示环境信息
         run: |
           echo "Node.js 版本: $(node -v)"
           echo "npm 版本: $(npm -v)"
           echo "操作系统: $(uname -a)"
 
-      - name: 安装后端依赖
+      - name: 📥 安装后端依赖
         working-directory: ./backend
-        run: npm install --no-fund --network-timeout 300000
+        run: npm ci --no-fund --network-timeout 300000
 
-      - name: 创建独立测试
+      - name: 📥 安装前端依赖
+        working-directory: ./frontend
+        run: npm ci --no-fund
+
+      - name: 🧪 运行后端测试
+        working-directory: ./backend
+        run: npm test
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test_secret
+          MONGO_URI: mongodb://localhost:27017/chainintelai_test
+
+      - name: 🧪 运行前端测试
+        working-directory: ./frontend
+        run: npm test
+
+      - name: 📊 生成测试报告
         run: |
-          # 创建一个完全独立的测试文件
-          echo 'console.log("这是自动触发测试"); console.log("当前时间:", new Date().toISOString()); process.exit(0);' > auto-test.js
+          echo "=== 自动测试报告 ===" > test-report.txt
+          echo "运行时间: $(date)" >> test-report.txt
+          echo "Node.js 版本: $(node -v)" >> test-report.txt
+          echo "npm 版本: $(npm -v)" >> test-report.txt
+          echo "✅ 测试完成" >> test-report.txt
 
-          # 运行测试
-          node auto-test.js
-          echo "✅ 基本测试通过"
-
-      - name: 检查Babel安装情况
-        run: |
-          cd backend
-          echo "=== backend目录中的Babel包检查 ==="
-          find node_modules -name "@babel" -type d | sort || echo "找不到@babel目录"
-          find node_modules -name "babel-*" | sort || echo "找不到babel-*包"
-
-          echo "=== 尝试安装Babel核心包 ==="
-          npm install --save-dev @babel/core@7.22.5 @babel/preset-env@7.22.5 @babel/plugin-transform-modules-commonjs@7.22.5 babel-jest@29.5.0
-
-          echo "=== 再次检查Babel安装情况 ==="
-          ls -la node_modules/@babel || echo "@babel目录不存在"
-
-          echo "=== 创建babel.config.js（如果不存在） ==="
-          if [ ! -f "babel.config.js" ]; then
-            echo 'module.exports = {
-              presets: [
-                ["@babel/preset-env", { targets: { node: "current" }, modules: "commonjs" }],
-                "@babel/preset-typescript"
-              ],
-              plugins: [
-                "@babel/plugin-transform-modules-commonjs"
-              ],
-              sourceType: "unambiguous"
-            };' > babel.config.js
-            echo "已创建babel.config.js"
-          else
-            echo "babel.config.js已存在:"
-            cat babel.config.js
-          fi
-
-      - name: 测试Babel
-        run: |
-          cd backend
-          echo "创建测试文件..."
-          echo "const test = async () => { await Promise.resolve(1); return 42; };" > babel-test.js
-
-          echo "=== 尝试使用babel编译 ==="
-          npm install --save-dev @babel/cli@7.22.5
-          if [ -f "node_modules/.bin/babel" ]; then
-            ./node_modules/.bin/babel babel-test.js --out-file babel-test.compiled.js || echo "编译失败"
-            cat babel-test.compiled.js || echo "编译后文件不存在"
-          else
-            echo "babel CLI不可用"
-          fi
-
-          echo "✅ Babel测试完成"
-
-      - name: 创建虚拟babel文件（备用方案）
-        run: |
-          # 创建虚拟babel文件作为备用
-          echo 'module.exports = { plugins: [] };' > babel-virtual-resolve-base.js
-          cat babel-virtual-resolve-base.js
-          echo "✅ 虚拟Babel文件创建成功"
+      - name: 📤 上传测试报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-test-report
+          path: test-report.txt
+          retention-days: 7

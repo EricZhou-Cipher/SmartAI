@@ -1,8 +1,12 @@
 name: 紧急测试 (Emergency Test)
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "运行此紧急测试的原因"
+        required: true
+        default: "紧急问题诊断"
 
 jobs:
   emergency_test:

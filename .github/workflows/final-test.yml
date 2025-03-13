@@ -1,8 +1,12 @@
 name: 最终测试 (Final Test)
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "运行此工作流的原因"
+        required: true
+        default: "最终验证测试"
 
 jobs:
   final_test:

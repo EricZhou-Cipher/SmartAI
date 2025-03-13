@@ -1,10 +1,13 @@
 name: 全新最小化测试 (Fresh Minimal Test)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/fresh-minimal-test.yml" # 只在此文件变化时触发
+  # 改为仅手动触发
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "运行此最小化测试的原因"
+        required: true
+        default: "最小化环境测试"
 
 jobs:
   basic_test:

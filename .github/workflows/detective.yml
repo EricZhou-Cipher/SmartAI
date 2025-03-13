@@ -1,8 +1,13 @@
 name: 工作流侦探 (Workflow Detective)
 
 on:
-  push:
-    branches: [main]
+  # 改为仅手动触发，用于诊断问题
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "运行此工作流的原因"
+        required: true
+        default: "诊断CI问题"
 
 jobs:
   find_workflows:
