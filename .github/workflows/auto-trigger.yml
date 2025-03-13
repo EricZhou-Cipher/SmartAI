@@ -29,11 +29,11 @@ jobs:
 
       - name: 📥 安装后端依赖
         working-directory: ./backend
-        run: npm ci --no-fund --network-timeout 300000
+        run: npm install --no-fund --network-timeout 300000
 
       - name: 📥 安装前端依赖
         working-directory: ./frontend
-        run: npm ci --no-fund
+        run: npm install --no-fund
 
       - name: 🧪 运行后端测试
         working-directory: ./backend

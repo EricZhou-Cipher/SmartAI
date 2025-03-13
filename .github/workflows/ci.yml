@@ -50,7 +50,7 @@ jobs:
 
       - name: 📥 安装后端依赖
         working-directory: ./backend
-        run: npm ci --no-fund --network-timeout 300000
+        run: npm install --no-fund --network-timeout 300000
 
       - name: 📋 显示已安装的 Babel 包
         working-directory: ./backend
@@ -141,7 +141,7 @@ jobs:
 
       - name: 📥 安装前端依赖
         working-directory: ./frontend
-        run: npm ci --no-fund
+        run: npm install --no-fund
 
       - name: 🧪 运行前端测试
         working-directory: ./frontend
@@ -169,7 +169,7 @@ jobs:
 
       - name: 📥 安装后端依赖
         working-directory: ./backend
-        run: npm ci --no-fund --network-timeout 300000
+        run: npm install --no-fund --network-timeout 300000
 
       - name: 🏗️ 构建后端
         working-directory: ./backend
@@ -177,7 +177,7 @@ jobs:
 
       - name: 📥 安装前端依赖
         working-directory: ./frontend
-        run: npm ci --no-fund
+        run: npm install --no-fund
 
       - name: 🏗️ 构建前端
         working-directory: ./frontend
