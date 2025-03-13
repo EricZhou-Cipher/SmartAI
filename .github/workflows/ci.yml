@@ -13,10 +13,10 @@
       ]
     };
     EOF
-    
+
     # 创建模型文件
     mkdir -p src/models
-    
+
     cat > src/models/User.js << 'EOF'
     export default {
       findOne: jest.fn().mockImplementation((query) => {
@@ -28,7 +28,7 @@
       create: jest.fn().mockImplementation((data) => ({ _id: '456', ...data }))
     };
     EOF
-    
+
     cat > src/models/Address.js << 'EOF'
     export default {
       findOne: jest.fn(),
@@ -43,7 +43,7 @@
       })
     };
     EOF
-    
+
     cat > src/models/Transaction.js << 'EOF'
     export default {
       findOne: jest.fn(),
@@ -58,10 +58,10 @@
       })
     };
     EOF
-    
+
     # 创建控制器文件
     mkdir -p src/controllers
-    
+
     cat > src/controllers/auth.controller.js << 'EOF'
     export const register = async (req, res) => {
       try {
@@ -85,7 +85,7 @@
       }
     };
     EOF
-    
+
     cat > src/controllers/address.controller.js << 'EOF'
     export const getAddresses = async (req, res) => {
       try {
@@ -101,7 +101,7 @@
       }
     };
     EOF
-    
+
     cat > src/controllers/transactions.controller.js << 'EOF'
     export const getTransactions = async (req, res) => {
       try {
@@ -117,10 +117,10 @@
       }
     };
     EOF
-    
+
     # 创建中间件文件
     mkdir -p src/middleware
-    
+
     cat > src/middleware/auth.js << 'EOF'
     export const protect = (req, res, next) => {
       const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -137,10 +137,10 @@
       return res.status(401).json({ success: false, message: '无效的令牌' });
     };
     EOF
-    
+
     # 创建路由文件
     mkdir -p src/routes
-    
+
     cat > src/routes/auth.js << 'EOF'
     import express from 'express';
     import { register, login } from '../controllers/auth.controller.js';
@@ -152,7 +152,7 @@
 
     export default router;
     EOF
-    
+
     cat > src/routes/address.js << 'EOF'
     import express from 'express';
     import { getAddresses } from '../controllers/address.controller.js';
@@ -164,7 +164,7 @@
 
     export default router;
     EOF
-    
+
     cat > src/routes/transactions.js << 'EOF'
     import express from 'express';
     import { getTransactions } from '../controllers/transactions.controller.js';
@@ -176,16 +176,16 @@
 
     export default router;
     EOF
-    
+
     # 创建工具函数文件
     mkdir -p src/utils
-    
+
     cat > src/utils/connectDB.js << 'EOF'
     export const connectWithRetry = jest.fn().mockResolvedValue(true);
     export const checkConnection = jest.fn().mockResolvedValue(true);
     export const getConnectionInfo = jest.fn().mockReturnValue({ host: 'localhost', port: 27017 });
     EOF
-    
+
     cat > src/utils/error.js << 'EOF'
     export class AppError extends Error {
       constructor(message, statusCode) {
@@ -198,7 +198,3 @@
       }
     }
     EOF
-    
-    # 列出创建的文件
-    echo "Created additional files:"
-    find src -type f -name "*.js" | grep -v "node_modules" | sort
