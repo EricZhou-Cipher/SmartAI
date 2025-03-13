@@ -1,158 +1,202 @@
-# ChainIntel AI
+# ChainIntelAI | 链智能 AI
 
-ChainIntel AI 是一个区块链智能监控平台，用于监控和分析区块链交易，提供警报和通知功能。
+<div align="center">
+  <img src="docs/images/logo.png" alt="ChainIntelAI Logo" width="200"/>
+  <p>
+    <b>区块链智能分析平台 | Blockchain Intelligence Analysis Platform</b>
+  </p>
+</div>
 
-## 项目概述
+[English](#english) | [中文](#chinese)
 
-ChainIntel AI 平台由前端和后端两部分组成，提供以下核心功能：
+---
 
-- 区块链交易实时监控
-- 自定义警报规则
-- 通知系统（邮件、系统内通知）
-- 日志记录和分析
-- 用户权限管理
+<a name="english"></a>
 
-## 项目结构
+## 🌐 English
+
+### Overview
+
+ChainIntelAI is an advanced blockchain intelligence platform that monitors, analyzes, and detects suspicious activities across multiple blockchain networks. Leveraging AI and machine learning algorithms, it provides real-time risk assessment and alerts for crypto transactions.
+
+### Key Features
+
+- **Multi-chain Monitoring**: Track transactions across Ethereum, BSC, Polygon, and other EVM-compatible chains
+- **AI-powered Risk Analysis**: Detect suspicious patterns and potential threats using advanced machine learning models
+- **Real-time Alerts**: Receive instant notifications for high-risk transactions
+- **Address Profiling**: Build comprehensive risk profiles for blockchain addresses
+- **Historical Data Analysis**: Analyze past transaction patterns to identify trends
+- **User-friendly Dashboard**: Visualize blockchain activities and risk metrics
+
+### Technology Stack
+
+- **Backend**: Node.js, Express, MongoDB
+- **AI/ML**: TensorFlow, Python
+- **Blockchain Interaction**: ethers.js, Web3.js
+- **Frontend**: React, TypeScript, Tailwind CSS
+- **DevOps**: Docker, GitHub Actions, AWS
+
+### Getting Started
+
+#### Prerequisites
+
+- Node.js (v18 or higher)
+- MongoDB
+- Ethereum RPC endpoint (Infura, Alchemy, or local node)
+
+#### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/EricZhou-Cipher/ChainIntelAI.git
+cd ChainIntelAI
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start the development server
+npm run dev
+```
+
+#### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test suite
+npm test -- --testPathPattern=auth
+```
+
+### Project Structure
 
 ```
 ChainIntelAI/
-├── frontend/           # 前端应用 (Next.js)
-└── backend/            # 后端服务 (Node.js/Express)
+├── backend/               # Backend server code
+│   ├── src/               # Source files
+│   │   ├── analyzer/      # Risk analysis modules
+│   │   ├── api/           # API endpoints
+│   │   ├── config/        # Configuration files
+│   │   ├── controllers/   # Request handlers
+│   │   ├── database/      # Database models and connections
+│   │   ├── middleware/    # Express middleware
+│   │   ├── monitoring/    # System monitoring
+│   │   ├── notifier/      # Alert notification system
+│   │   ├── pipeline/      # Data processing pipeline
+│   │   ├── profiling/     # Address profiling logic
+│   │   ├── scheduler/     # Task scheduling
+│   │   └── utils/         # Utility functions
+│   ├── tests/             # Test files
+│   └── package.json       # Dependencies
+├── frontend/              # Frontend application
+├── docs/                  # Documentation
+└── README.md              # Project overview
 ```
 
-## 快速开始
+### Contributing
 
-### 前提条件
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
-- Node.js 18+
-- MongoDB 6+
-- Yarn 或 npm
+### License
 
-### 后端设置
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-1. 进入后端目录：
+---
+
+<a name="chinese"></a>
+
+## 🌐 中文
+
+### 概述
+
+ChainIntelAI 是一个先进的区块链智能分析平台，可监控、分析和检测多个区块链网络上的可疑活动。通过利用人工智能和机器学习算法，它为加密货币交易提供实时风险评估和警报。
+
+### 主要特点
+
+- **多链监控**：跟踪以太坊、BSC、Polygon 和其他 EVM 兼容链上的交易
+- **AI 驱动的风险分析**：使用先进的机器学习模型检测可疑模式和潜在威胁
+- **实时警报**：接收高风险交易的即时通知
+- **地址画像**：为区块链地址建立全面的风险档案
+- **历史数据分析**：分析过去的交易模式以识别趋势
+- **用户友好的仪表板**：可视化区块链活动和风险指标
+
+### 技术栈
+
+- **后端**：Node.js, Express, MongoDB
+- **AI/ML**：TensorFlow, Python
+- **区块链交互**：ethers.js, Web3.js
+- **前端**：React, TypeScript, Tailwind CSS
+- **DevOps**：Docker, GitHub Actions, AWS
+
+### 快速开始
+
+#### 前提条件
+
+- Node.js (v18 或更高版本)
+- MongoDB
+- 以太坊 RPC 端点 (Infura, Alchemy 或本地节点)
+
+#### 安装
 
 ```bash
-cd backend
-```
+# 克隆仓库
+git clone https://github.com/EricZhou-Cipher/ChainIntelAI.git
+cd ChainIntelAI
 
-2. 安装依赖：
-
-```bash
-yarn install
-# 或
+# 安装依赖
 npm install
-```
 
-3. 创建 `.env` 文件并配置环境变量：
+# 设置环境变量
+cp .env.example .env
+# 编辑.env文件进行配置
 
-```
-PORT=5001
-MONGODB_URI=mongodb://localhost:27017/chainintel
-JWT_SECRET=your_jwt_secret_key
-NODE_ENV=development
-```
-
-4. 启动开发服务器：
-
-```bash
-yarn dev
-# 或
+# 启动开发服务器
 npm run dev
 ```
 
-后端服务器将在 [http://localhost:5001](http://localhost:5001) 上运行。
-
-### 前端设置
-
-1. 进入前端目录：
+#### 运行测试
 
 ```bash
-cd frontend
-```
-
-2. 安装依赖：
-
-```bash
-yarn install
-# 或
-npm install
-```
-
-3. 创建 `.env.local` 文件并配置环境变量：
-
-```
-NEXT_PUBLIC_API_URL=http://localhost:5001
-NEXT_PUBLIC_SOCKET_URL=http://localhost:5001
-```
-
-4. 启动开发服务器：
-
-```bash
-yarn dev
-# 或
-npm run dev
-```
-
-前端应用将在 [http://localhost:3000](http://localhost:3000) 上运行。
-
-## 测试
-
-### 后端测试
-
-```bash
-cd backend
-yarn test
-# 或
+# 运行所有测试
 npm test
+
+# 运行特定测试套件
+npm test -- --testPathPattern=auth
 ```
 
-### 前端测试
+### 项目结构
 
-```bash
-cd frontend
-yarn test
-# 或
-npm test
+```
+ChainIntelAI/
+├── backend/               # 后端服务器代码
+│   ├── src/               # 源文件
+│   │   ├── analyzer/      # 风险分析模块
+│   │   ├── api/           # API端点
+│   │   ├── config/        # 配置文件
+│   │   ├── controllers/   # 请求处理器
+│   │   ├── database/      # 数据库模型和连接
+│   │   ├── middleware/    # Express中间件
+│   │   ├── monitoring/    # 系统监控
+│   │   ├── notifier/      # 警报通知系统
+│   │   ├── pipeline/      # 数据处理管道
+│   │   ├── profiling/     # 地址画像逻辑
+│   │   ├── scheduler/     # 任务调度
+│   │   └── utils/         # 实用函数
+│   ├── tests/             # 测试文件
+│   └── package.json       # 依赖项
+├── frontend/              # 前端应用
+├── docs/                  # 文档
+└── README.md              # 项目概述
 ```
 
-## 部署
+### 贡献
 
-### 后端部署
+我们欢迎贡献！请查看我们的[贡献指南](CONTRIBUTING.md)了解详情。
 
-```bash
-cd backend
-yarn build
-yarn start
-# 或
-npm run build
-npm start
-```
+### 许可证
 
-### 前端部署
-
-```bash
-cd frontend
-yarn build
-yarn start
-# 或
-npm run build
-npm start
-```
-
-## 详细文档
-
-- [前端文档](./frontend/README.md)
-- [后端文档](./backend/README.md)
-
-## 贡献指南
-
-1. Fork 仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
-
-## 许可证
-
-[MIT](LICENSE)
+本项目采用 MIT 许可证 - 详情请参阅[LICENSE](LICENSE)文件。

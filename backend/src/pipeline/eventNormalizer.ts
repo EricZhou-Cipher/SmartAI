@@ -40,7 +40,7 @@ export class EventNormalizer {
       raw: event,
       type: EventType.TRANSFER,
       createdAt: new Date(event.timestamp * 1000),
-      updatedAt: new Date(event.timestamp * 1000),
+      updatedAt: new Date(event.timestamp * 1000)
     };
   }
 
@@ -69,7 +69,7 @@ export class EventNormalizer {
       raw: event,
       type: EventType.CONTRACT_CALL,
       createdAt: new Date(event.timestamp * 1000),
-      updatedAt: new Date(event.timestamp * 1000),
+      updatedAt: new Date(event.timestamp * 1000)
     };
   }
 
@@ -79,7 +79,7 @@ export class EventNormalizer {
       if (!event) {
         throw new Error('Invalid event data');
       }
-
+      
       // 验证必要字段
       if (!event.hash || !event.from || !event.to) {
         throw new Error('Missing required fields in event');
@@ -114,19 +114,19 @@ export class EventNormalizer {
         raw: event,
         type: EventType.UNKNOWN,
         createdAt: new Date(),
-        updatedAt: new Date(),
+        updatedAt: new Date()
       };
 
       this.logger.debug('Event normalized successfully', {
         transactionHash: normalized.transactionHash,
-        methodName: normalized.methodName,
+        methodName: normalized.methodName
       });
 
       return normalized;
     } catch (error) {
       this.logger.error('Failed to normalize event', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        event,
+        event
       });
       throw error;
     }
@@ -141,14 +141,14 @@ export class EventNormalizer {
       return {
         methodName: 'transfer',
         methodSignature: 'transfer(address,uint256)',
-        params: {},
+        params: {}
       };
     }
 
     try {
       // 解析方法签名（前4字节）
       const methodId = input.slice(0, 10);
-
+      
       // TODO: 实现完整的 ABI 解析
       // 这里需要维护一个方法签名到 ABI 的映射
       // 暂时返回原始数据
@@ -156,13 +156,13 @@ export class EventNormalizer {
         methodName: 'unknown',
         methodSignature: methodId,
         params: {
-          raw: input,
-        },
+          raw: input
+        }
       };
     } catch (error) {
       this.logger.warn('Failed to parse method', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        input,
+        input
       });
       return {};
     }
@@ -175,4 +175,4 @@ export class EventNormalizer {
   private isValidValue(value: string): boolean {
     return /^\d+$/.test(value);
   }
-}
+} 

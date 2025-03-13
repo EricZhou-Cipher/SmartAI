@@ -16,8 +16,8 @@ jest.mock('@/database/models/RiskAnalysis', () => ({
     findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
     deleteOne: jest.fn(),
-    find: jest.fn(),
-  },
+    find: jest.fn()
+  }
 }));
 
 // Mock Redis缓存
@@ -25,8 +25,8 @@ jest.mock('@/database/redis', () => ({
   cache: {
     get: jest.fn(),
     set: jest.fn(),
-    del: jest.fn(),
-  },
+    del: jest.fn()
+  }
 }));
 
 describe('RiskAnalysisDAO', () => {
@@ -40,8 +40,8 @@ describe('RiskAnalysisDAO', () => {
       details: {
         transactionPattern: 'unusual',
         valueDistribution: 'concentrated',
-        timePattern: 'irregular',
-      },
+        timePattern: 'irregular'
+      }
     },
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -97,7 +97,7 @@ describe('RiskAnalysisDAO', () => {
     update: jest.fn(),
     updateOne: jest.fn(),
     validate: jest.fn(),
-    validateSync: jest.fn(),
+    validateSync: jest.fn()
   } as unknown as IRiskAnalysis;
 
   beforeEach(() => {
@@ -112,7 +112,11 @@ describe('RiskAnalysisDAO', () => {
       const result = await RiskAnalysisDAO.create(mockAnalysis);
 
       expect(RiskAnalysisModel.create).toHaveBeenCalledWith(mockAnalysis);
-      expect(cache.set).toHaveBeenCalledWith(`risk:${mockAnalysis.address}`, mockAnalysis, 3600);
+      expect(cache.set).toHaveBeenCalledWith(
+        `risk:${mockAnalysis.address}`,
+        mockAnalysis,
+        3600
+      );
       expect(result).toEqual(mockAnalysis);
     });
 
@@ -144,7 +148,11 @@ describe('RiskAnalysisDAO', () => {
 
       expect(cache.get).toHaveBeenCalledWith(`risk:${mockAddress}`);
       expect(RiskAnalysisModel.findOne).toHaveBeenCalledWith({ address: mockAddress });
-      expect(cache.set).toHaveBeenCalledWith(`risk:${mockAddress}`, mockAnalysis, 3600);
+      expect(cache.set).toHaveBeenCalledWith(
+        `risk:${mockAddress}`,
+        mockAnalysis,
+        3600
+      );
       expect(result).toEqual(mockAnalysis);
     });
   });
@@ -156,8 +164,8 @@ describe('RiskAnalysisDAO', () => {
         analysis: {
           ...mockAnalysis.analysis,
           score: 0.9,
-          level: 'critical' as RiskLevel,
-        },
+          level: 'critical' as RiskLevel
+        }
       };
       (RiskAnalysisModel.findOneAndUpdate as jest.Mock).mockResolvedValue(updatedAnalysis);
       (cache.set as jest.Mock).mockResolvedValue(undefined);
@@ -169,7 +177,11 @@ describe('RiskAnalysisDAO', () => {
         { $set: { analysis: updatedAnalysis.analysis } },
         { new: true }
       );
-      expect(cache.set).toHaveBeenCalledWith(`risk:${mockAddress}`, updatedAnalysis, 3600);
+      expect(cache.set).toHaveBeenCalledWith(
+        `risk:${mockAddress}`,
+        updatedAnalysis,
+        3600
+      );
       expect(result).toEqual(updatedAnalysis);
     });
   });
@@ -200,23 +212,19 @@ describe('RiskAnalysisDAO', () => {
     it('should return addresses with risk score above threshold', async () => {
       const highRiskAddresses = [
         { ...mockAnalysis, analysis: { ...mockAnalysis.analysis, score: 0.9 } },
-        {
-          ...mockAnalysis,
-          address: '0xabcdef1234567890',
-          analysis: { ...mockAnalysis.analysis, score: 0.85 },
-        },
+        { ...mockAnalysis, address: '0xabcdef1234567890', analysis: { ...mockAnalysis.analysis, score: 0.85 } }
       ];
-
+      
       // 模拟 find 方法返回带有 sort 方法的对象
       const mockFindResult = {
-        sort: jest.fn().mockReturnValue(highRiskAddresses),
+        sort: jest.fn().mockReturnValue(highRiskAddresses)
       };
       (RiskAnalysisModel.find as jest.Mock).mockReturnValue(mockFindResult);
 
       const result = await RiskAnalysisDAO.findHighRiskAddresses(0.8);
 
       expect(RiskAnalysisModel.find).toHaveBeenCalledWith({
-        'analysis.score': { $gte: 0.8 },
+        'analysis.score': { $gte: 0.8 }
       });
       expect(mockFindResult.sort).toHaveBeenCalledWith({ 'analysis.score': -1 });
       expect(result).toEqual(highRiskAddresses);
@@ -225,7 +233,7 @@ describe('RiskAnalysisDAO', () => {
     it('should return empty array when no high risk addresses found', async () => {
       // 模拟 find 方法返回带有 sort 方法的对象
       const mockFindResult = {
-        sort: jest.fn().mockReturnValue([]),
+        sort: jest.fn().mockReturnValue([])
       };
       (RiskAnalysisModel.find as jest.Mock).mockReturnValue(mockFindResult);
 
@@ -235,4 +243,4 @@ describe('RiskAnalysisDAO', () => {
       expect(result).toEqual([]);
     });
   });
-});
+}); 

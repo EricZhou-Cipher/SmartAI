@@ -19,8 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -34,35 +33,76 @@ jobs:
           npm cache clean --force
           echo "Cleared npm cache"
 
-      - name: Create additional files for tests
+      - name: Clear node_modules
         working-directory: ./backend
         run: |
-          # 创建配置文件
-          cat > babel.config.js << 'EOF'
-          module.exports = {
-            presets: [
-              ['@babel/preset-env', { targets: { node: 'current' } }],
-              '@babel/preset-typescript'
-            ],
-            plugins: [
-              '@babel/plugin-transform-modules-commonjs'
-            ]
-          };
-          EOF
+          if [ -d "node_modules" ]; then
+            rm -rf node_modules
+            echo "Removed node_modules directory"
+          fi
 
-          # 创建模型文件
-          mkdir -p src/models
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm install --no-fund --network-timeout 300000
 
-          cat > src/models/User.js << 'EOF'
-          export default {
-            findOne: jest.fn().mockImplementation((query) => {
-              if (query.email === 'existing@example.com') {
-                return { _id: '123', email: 'existing@example.com', password: 'hashedpassword' };
-              }
-              return null;
-            }),
-            create: jest.fn().mockImplementation((data) => ({ _id: '456', ...data }))
-          };
-          EOF
+      - name: Install Babel explicitly
+        working-directory: ./backend
+        run: |
+          npm install --save-dev @babel/core@7.22.5 @babel/preset-env@7.22.5 @babel/plugin-transform-modules-commonjs@7.22.5 babel-jest@29.5.0 @babel/cli@7.22.5
 
-          # 其余文件创建代码...
+      - name: Display installed Babel packages
+        working-directory: ./backend
+        run: |
+          echo "Installed Babel packages:"
+          npm list @babel/core @babel/preset-env @babel/plugin-transform-modules-commonjs babel-jest @babel/cli || true
+
+      - name: Run tests with coverage
+        working-directory: ./backend
+        run: npm run test:ci
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test_secret
+          MONGO_URI: mongodb://localhost:27017/chainintelai_test
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            backend/coverage/coverage-summary.json
+            backend/coverage/lcov-report/
+          retention-days: 7
+
+      - name: Check coverage thresholds
+        working-directory: ./backend
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "Coverage file not found"
+            exit 1
+          fi
+
+          COVERAGE=$(cat coverage/coverage-summary.json)
+          STATEMENTS=$(echo $COVERAGE | jq -r '.total.statements.pct')
+          BRANCHES=$(echo $COVERAGE | jq -r '.total.branches.pct')
+          FUNCTIONS=$(echo $COVERAGE | jq -r '.total.functions.pct')
+          LINES=$(echo $COVERAGE | jq -r '.total.lines.pct')
+
+          if (( $(echo "$STATEMENTS < $COVERAGE_THRESHOLD_STATEMENTS" | bc -l) )); then
+            echo "Statements coverage ($STATEMENTS%) is below threshold ($COVERAGE_THRESHOLD_STATEMENTS%)"
+            exit 1
+          fi
+
+          if (( $(echo "$BRANCHES < $COVERAGE_THRESHOLD_BRANCHES" | bc -l) )); then
+            echo "Branches coverage ($BRANCHES%) is below threshold ($COVERAGE_THRESHOLD_BRANCHES%)"
+            exit 1
+          fi
+
+          if (( $(echo "$FUNCTIONS < $COVERAGE_THRESHOLD_FUNCTIONS" | bc -l) )); then
+            echo "Functions coverage ($FUNCTIONS%) is below threshold ($COVERAGE_THRESHOLD_FUNCTIONS%)"
+            exit 1
+          fi
+
+          if (( $(echo "$LINES < $COVERAGE_THRESHOLD_LINES" | bc -l) )); then
+            echo "Lines coverage ($LINES%) is below threshold ($COVERAGE_THRESHOLD_LINES%)"
+            exit 1
+          fi

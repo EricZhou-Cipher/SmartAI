@@ -21,9 +21,9 @@ describe('RiskPatternAnalyzer', () => {
     jest.clearAllMocks();
 
     // 模拟 logger 方法
-    (logger.info as jest.Mock).mockImplementation(() => {});
-    (logger.error as jest.Mock).mockImplementation(() => {});
-    (logger.warn as jest.Mock).mockImplementation(() => {});
+    (logger.info as jest.Mock).mockImplementation(() => { });
+    (logger.error as jest.Mock).mockImplementation(() => { });
+    (logger.warn as jest.Mock).mockImplementation(() => { });
 
     // 准备测试数据
     mockEvent = {

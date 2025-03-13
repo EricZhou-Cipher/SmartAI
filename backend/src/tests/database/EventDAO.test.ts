@@ -3,15 +3,15 @@
  * @description 测试EventDAO的所有核心方法，包括数据库操作与缓存逻辑
  */
 
-import { EventDAO } from '@/database/dao/EventDAO';
-import { EventRecord } from '@/database/models/EventRecord';
-import { NormalizedEvent, EventType } from '@/types/events';
-import { IEventRecord } from '@/database/models/EventRecord';
+import { EventDAO } from '../../database/dao/EventDAO';
+import { EventRecord } from '../../database/models/EventRecord';
+import { NormalizedEvent, EventType } from '../../types/events';
+import { IEventRecord } from '../../database/models/EventRecord';
 import { Document } from 'mongoose';
-import { cache } from '@/database/redis';
+import { cache } from '../../database/redis';
 
 // Mock EventRecord模型
-jest.mock('@/database/models/EventRecord', () => ({
+jest.mock('../../database/models/EventRecord', () => ({
   EventRecord: {
     create: jest.fn(),
     findOne: jest.fn(),
@@ -22,7 +22,7 @@ jest.mock('@/database/models/EventRecord', () => ({
 }));
 
 // Mock Redis缓存
-jest.mock('@/database/redis', () => ({
+jest.mock('../../database/redis', () => ({
   cache: {
     get: jest.fn(),
     set: jest.fn(),
@@ -194,6 +194,30 @@ describe('EventDAO', () => {
 
       await expect(EventDAO.create(mockEventRecord)).rejects.toThrow(error);
     });
+
+    it('应该处理缺少必填字段的情况', async () => {
+      const invalidRecord = { ...mockEventRecord };
+      // @ts-ignore - 故意删除必填字段以测试错误处理
+      delete invalidRecord.traceId;
+
+      const validationError = new Error('ValidationError: traceId is required');
+      (EventRecord.create as jest.Mock).mockRejectedValue(validationError);
+
+      await expect(EventDAO.create(invalidRecord)).rejects.toThrow(validationError);
+    });
+
+    it('应该处理缓存写入失败的情况', async () => {
+      (EventRecord.create as jest.Mock).mockResolvedValue(mockEventRecord);
+      const cacheError = new Error('Redis连接失败');
+      (cache.set as jest.Mock).mockRejectedValue(cacheError);
+
+      // 即使缓存写入失败，创建操作也应该成功
+      const result = await EventDAO.create(mockEventRecord);
+
+      expect(result).toBeDefined();
+      expect(result.traceId).toBe(mockEvent.traceId);
+      expect(cache.set).toHaveBeenCalled();
+    });
   });
 
   describe('findByTraceId', () => {
@@ -232,6 +256,26 @@ describe('EventDAO', () => {
 
       expect(result).toBeNull();
     });
+
+    it('应该处理缓存读取失败的情况', async () => {
+      const cacheError = new Error('Redis连接失败');
+      (cache.get as jest.Mock).mockRejectedValue(cacheError);
+      (EventRecord.findOne as jest.Mock).mockResolvedValue(mockEventRecord);
+
+      // 即使缓存读取失败，也应该从数据库获取数据
+      const result = await EventDAO.findByTraceId(mockEventRecord.traceId);
+
+      expect(EventRecord.findOne).toHaveBeenCalledWith({ traceId: mockEventRecord.traceId });
+      expect(result).toEqual(mockEventRecord);
+    });
+
+    it('应该处理数据库查询失败的情况', async () => {
+      (cache.get as jest.Mock).mockResolvedValue(null);
+      const dbError = new Error('数据库连接失败');
+      (EventRecord.findOne as jest.Mock).mockRejectedValue(dbError);
+
+      await expect(EventDAO.findByTraceId(mockEventRecord.traceId)).rejects.toThrow(dbError);
+    });
   });
 
   describe('findByTransactionHash', () => {
@@ -244,6 +288,21 @@ describe('EventDAO', () => {
         'event.transactionHash': mockEvent.transactionHash,
       });
       expect(result).toEqual(mockEventRecord);
+    });
+
+    it('应该处理无效的交易哈希', async () => {
+      (EventRecord.findOne as jest.Mock).mockResolvedValue(null);
+
+      const result = await EventDAO.findByTransactionHash('0xinvalid');
+
+      expect(result).toBeNull();
+    });
+
+    it('应该处理数据库查询失败的情况', async () => {
+      const dbError = new Error('数据库连接失败');
+      (EventRecord.findOne as jest.Mock).mockRejectedValue(dbError);
+
+      await expect(EventDAO.findByTransactionHash(mockEvent.transactionHash)).rejects.toThrow(dbError);
     });
   });
 
@@ -265,6 +324,33 @@ describe('EventDAO', () => {
         updatedRecord,
         3600
       );
+      expect(result).toEqual(updatedRecord);
+    });
+
+    it('应该处理记录不存在的情况', async () => {
+      (EventRecord.findOneAndUpdate as jest.Mock).mockResolvedValue(null);
+
+      const result = await EventDAO.updateStatus('不存在的ID', 'completed');
+
+      expect(result).toBeNull();
+    });
+
+    it('应该处理数据库更新失败的情况', async () => {
+      const dbError = new Error('数据库连接失败');
+      (EventRecord.findOneAndUpdate as jest.Mock).mockRejectedValue(dbError);
+
+      await expect(EventDAO.updateStatus(mockEventRecord.traceId, 'completed')).rejects.toThrow(dbError);
+    });
+
+    it('应该处理缓存更新失败的情况', async () => {
+      const updatedRecord = { ...mockEventRecord, status: 'completed' as const };
+      (EventRecord.findOneAndUpdate as jest.Mock).mockResolvedValue(updatedRecord);
+      const cacheError = new Error('Redis连接失败');
+      (cache.set as jest.Mock).mockRejectedValue(cacheError);
+
+      // 即使缓存更新失败，更新操作也应该成功
+      const result = await EventDAO.updateStatus(mockEventRecord.traceId, 'completed');
+
       expect(result).toEqual(updatedRecord);
     });
   });
@@ -301,6 +387,15 @@ describe('EventDAO', () => {
       );
       expect(result).toEqual(updatedRecord);
     });
+
+    it('应该处理无效的风险分析数据', async () => {
+      // @ts-ignore - 故意使用无效数据测试错误处理
+      const invalidRiskAnalysis = { score: 'invalid' };
+      const validationError = new Error('ValidationError: score must be a number');
+      (EventRecord.findOneAndUpdate as jest.Mock).mockRejectedValue(validationError);
+
+      await expect(EventDAO.updateRiskAnalysis(mockEventRecord.traceId, invalidRiskAnalysis)).rejects.toThrow(validationError);
+    });
   });
 
   describe('delete', () => {
@@ -323,6 +418,24 @@ describe('EventDAO', () => {
 
       expect(result).toBe(false);
     });
+
+    it('应该处理数据库删除失败的情况', async () => {
+      const dbError = new Error('数据库连接失败');
+      (EventRecord.deleteOne as jest.Mock).mockRejectedValue(dbError);
+
+      await expect(EventDAO.delete(mockEventRecord.traceId)).rejects.toThrow(dbError);
+    });
+
+    it('应该处理缓存删除失败的情况', async () => {
+      (EventRecord.deleteOne as jest.Mock).mockResolvedValue({ deletedCount: 1 });
+      const cacheError = new Error('Redis连接失败');
+      (cache.del as jest.Mock).mockRejectedValue(cacheError);
+
+      // 即使缓存删除失败，删除操作也应该成功
+      const result = await EventDAO.delete(mockEventRecord.traceId);
+
+      expect(result).toBe(true);
+    });
   });
 
   describe('deleteMany', () => {
@@ -333,6 +446,22 @@ describe('EventDAO', () => {
 
       expect(EventRecord.deleteMany).toHaveBeenCalledWith({ status: 'completed' });
       expect(result).toBe(5);
+    });
+
+    it('应该处理数据库批量删除失败的情况', async () => {
+      const dbError = new Error('数据库连接失败');
+      (EventRecord.deleteMany as jest.Mock).mockRejectedValue(dbError);
+
+      await expect(EventDAO.deleteMany({ status: 'completed' })).rejects.toThrow(dbError);
+    });
+
+    it('应该处理无效的查询条件', async () => {
+      // @ts-ignore - 故意使用无效查询条件测试错误处理
+      const invalidQuery = { status: { $invalid: 'operator' } };
+      const queryError = new Error('Invalid query operator: $invalid');
+      (EventRecord.deleteMany as jest.Mock).mockRejectedValue(queryError);
+
+      await expect(EventDAO.deleteMany(invalidQuery)).rejects.toThrow(queryError);
     });
   });
 });

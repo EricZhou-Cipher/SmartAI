@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>8/10</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/10</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -113,7 +113,8 @@
 <a name='L48'></a><a href='#L48'>48</a>
 <a name='L49'></a><a href='#L49'>49</a>
 <a name='L50'></a><a href='#L50'>50</a>
-<a name='L51'></a><a href='#L51'>51</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">3x</span>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -130,7 +131,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -152,18 +153,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span></td><td class="text"><pre class="prettyprint lang-js">import { Schema, model, Document } from 'mongoose';
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { Schema, model, Document } from 'mongoose';</span>
 import { NormalizedEvent } from '../../types/events';
 &nbsp;
 export interface IEventRecord extends Document {
@@ -180,47 +182,48 @@ export interface IEventRecord extends Document {
   updatedAt: Date;
 }
 &nbsp;
-const EventRecordSchema = new Schema&lt;IEventRecord&gt;({
+const EventRecordSchema = <span class="cstat-no" title="statement not covered" >new Schema&lt;IEventRecord&gt;({</span>
   traceId: { type: String, required: true, index: true },
   event: {
     type: Schema.Types.Mixed,
-    required: true
+    required: true,
   },
   status: {
     type: String,
     enum: ['pending', 'processing', 'completed', 'failed'],
-    default: 'pending'
+    default: 'pending',
   },
   riskAnalysis: {
     score: Number,
     level: String,
     factors: [String],
-    timestamp: Number
+    timestamp: Number,
   },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
 });
 &nbsp;
 // 创建索引
-EventRecordSchema.index({ 'event.transactionHash': 1 });
-EventRecordSchema.index({ 'event.from': 1 });
-EventRecordSchema.index({ 'event.to': 1 });
-EventRecordSchema.index({ createdAt: -1 });
+<span class="cstat-no" title="statement not covered" >EventRecordSchema.index({ 'event.transactionHash': 1 });</span>
+<span class="cstat-no" title="statement not covered" >EventRecordSchema.index({ 'event.from': 1 });</span>
+<span class="cstat-no" title="statement not covered" >EventRecordSchema.index({ 'event.to': 1 });</span>
+<span class="cstat-no" title="statement not covered" >EventRecordSchema.index({ createdAt: -1 });</span>
 &nbsp;
 // 更新时间中间件
-EventRecordSchema.pre('save', <span class="fstat-no" title="function not covered" >function(n</span>ext) {
+<span class="cstat-no" title="statement not covered" >EventRecordSchema.pre('save', <span class="fstat-no" title="function not covered" >function (n</span>ext) {</span>
 <span class="cstat-no" title="statement not covered" >  this.updatedAt = new Date();</span>
 <span class="cstat-no" title="statement not covered" >  next();</span>
 });
 &nbsp;
-export const EventRecord = model&lt;IEventRecord&gt;('EventRecord', EventRecordSchema); </pre></td></tr></table></pre>
+export const <span class="cstat-no" title="statement not covered" >EventRecord = model&lt;IEventRecord&gt;('EventRecord', EventRecordSchema);</span>
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-03-08T08:05:48.260Z
+                at 2025-03-09T08:05:00.327Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

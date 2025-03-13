@@ -1,16 +1,26 @@
-FROM node:18-alpine
-
-# 安装 yarn
-RUN apk add --no-cache yarn
+FROM node:20-alpine
 
 WORKDIR /app
 
+# 安装依赖
 COPY package.json yarn.lock ./
+RUN yarn install
 
-RUN yarn install --production
-
+# 复制源代码
 COPY . .
 
-EXPOSE 5000
+# 创建日志目录
+RUN mkdir -p logs
 
-CMD ["node", "src/server.js"] 
+# 构建应用
+RUN yarn build
+
+# 设置环境变量
+ENV NODE_ENV=production
+
+# 暴露端口
+EXPOSE 3000
+EXPOSE 9090
+
+# 启动命令
+CMD ["yarn", "start"] 

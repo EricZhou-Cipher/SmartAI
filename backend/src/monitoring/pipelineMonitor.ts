@@ -18,6 +18,10 @@ export class PipelineMonitor {
   // 错误计数
   private errorTotal: Counter<string>;
 
+  // 缓存命中和未命中计数
+  private hitCount: number = 0;
+  private missCount: number = 0;
+
   constructor(config: MonitorConfig) {
     this.registry = new Registry();
     this.prefix = config.metricsPrefix;
@@ -46,15 +50,6 @@ export class PipelineMonitor {
       name: `${this.prefix}_profile_cache_hit_ratio`,
       help: 'Profile cache hit ratio',
       registers: [this.registry],
-      collect: () => {
-        const hits = Number(this.profileCacheHits.get());
-        const misses = Number(this.profileCacheMisses.get());
-        const total = hits + misses;
-
-        if (total > 0) {
-          this.profileCacheHitRatio.set(hits / total);
-        }
-      },
     });
 
     this.aiAnalysisLatency = new Histogram({
@@ -87,11 +82,26 @@ export class PipelineMonitor {
   // 记录缓存命中
   recordCacheHit(): void {
     this.profileCacheHits.inc();
+    this.hitCount++;
+    this.updateCacheHitRatio();
   }
 
   // 记录缓存未命中
   recordCacheMiss(): void {
     this.profileCacheMisses.inc();
+    this.missCount++;
+    this.updateCacheHitRatio();
+  }
+
+  // 更新缓存命中率
+  private updateCacheHitRatio(): void {
+    const total = this.hitCount + this.missCount;
+
+    if (total > 0) {
+      this.profileCacheHitRatio.set(this.hitCount / total);
+    }
+    // 当总请求数为零时，不设置缓存命中率
+    // 这样可以避免在测试中出现 "chainintel_profile_cache_hit_ratio 0" 的情况
   }
 
   // 记录AI分析耗时
@@ -101,12 +111,12 @@ export class PipelineMonitor {
 
   // 记录事件处理
   recordEventProcessing(status: 'success' | 'error'): void {
-    this.eventProcessingTotal.labels(status).inc();
+    this.eventProcessingTotal.inc({ status });
   }
 
   // 记录错误
   recordError(type: string): void {
-    this.errorTotal.labels(type).inc();
+    this.errorTotal.inc({ type });
   }
 
   // 获取所有指标

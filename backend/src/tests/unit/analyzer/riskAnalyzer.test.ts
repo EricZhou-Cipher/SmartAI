@@ -1,6 +1,6 @@
 /**
  * RiskAnalyzer Unit Tests
- *
+ * 
  * 测试目标：验证风险分析逻辑的正确性
  * 覆盖范围：
  * 1. 基础风险分析
@@ -271,5 +271,285 @@ describe('RiskAnalyzer', () => {
       expect(result.factors).toContain('合约调用');
       expect(result.factors).toContain('MEV行为');
     }, 10000);
+
+    // 新增测试用例：小额交易测试
+    it('should analyze small value transactions as low risk', async () => {
+      // 使用小额交易
+      mockEvent.value = parseUnits('0.01', 18).toString(); // 0.01 ETH
+
+      // 修改 MLModel 和 RiskPatternAnalyzer 的返回值，使其返回低风险
+      const { MLModel } = require('../../../analyzer/MLModel');
+      const { RiskPatternAnalyzer } = require('../../../analyzer/RiskPatternAnalyzer');
+
+      MLModel.analyzeRisk.mockResolvedValue({
+        score: 0.1,
+        factors: ['normal_activity', 'small_transfer'],
+        confidence: 0.9,
+      });
+
+      RiskPatternAnalyzer.evaluate.mockResolvedValue({
+        score: 0.1,
+        factors: ['normal_pattern'],
+        confidence: 0.9,
+      });
+
+      const result = await riskAnalyzer.analyze(mockEvent, mockProfile);
+
+      // 验证风险等级
+      expect(result.score).toBeLessThanOrEqual(0.3);
+      expect(result.level).toBe(RiskLevel.LOW);
+      expect(result.factors).toContain('normal_activity');
+      expect(result.factors).toContain('small_transfer');
+    }, 10000);
+
+    // 新增测试用例：欺诈交易测试
+    it('should detect fraudulent transactions', async () => {
+      // 修改地址画像，使用欺诈地址
+      mockProfile.category = AddressCategory.SCAM;
+      mockProfile.tags = ['scam', 'phishing'];
+      mockProfile.riskScore = 0.9;
+
+      // 修改 MLModel 的返回值，使其返回欺诈风险
+      const { MLModel } = require('../../../analyzer/MLModel');
+      MLModel.analyzeRisk.mockResolvedValue({
+        score: 0.95,
+        factors: ['fraud_pattern', 'scam_address'],
+        confidence: 0.95,
+      });
+
+      const result = await riskAnalyzer.analyze(mockEvent, mockProfile);
+
+      // 验证风险等级
+      expect(result.score).toBeGreaterThanOrEqual(0.9);
+      expect(result.level).toBe(RiskLevel.CRITICAL);
+      expect(result.factors).toContain('fraud_pattern');
+      expect(result.factors).toContain('scam_address');
+    }, 10000);
+
+    // 新增测试用例：洗钱交易测试
+    it('should detect money laundering transactions', async () => {
+      // 修改地址画像，使用洗钱特征
+      mockProfile.tags = ['mixer_user', 'multiple_hops'];
+      mockProfile.riskScore = 0.8;
+
+      // 创建多跳交易模式
+      const multiHopEvent = {
+        ...mockEvent,
+        metadata: {
+          hops: 5, // 多跳交易
+          mixerUsed: true,
+        },
+      };
+
+      // 修改 MLModel 和 RiskPatternAnalyzer 的返回值
+      const { MLModel } = require('../../../analyzer/MLModel');
+      const { RiskPatternAnalyzer } = require('../../../analyzer/RiskPatternAnalyzer');
+
+      MLModel.analyzeRisk.mockResolvedValue({
+        score: 0.85,
+        factors: ['money_laundering', 'mixer_usage'],
+        confidence: 0.9,
+      });
+
+      RiskPatternAnalyzer.evaluate.mockResolvedValue({
+        score: 0.8,
+        factors: ['layering_pattern', 'multiple_hops'],
+        confidence: 0.85,
+      });
+
+      const result = await riskAnalyzer.analyze(multiHopEvent, mockProfile);
+
+      // 验证风险等级
+      expect(result.score).toBeGreaterThanOrEqual(0.8);
+      expect(result.level).toBe(RiskLevel.HIGH);
+      expect(result.factors).toContain('money_laundering');
+      expect(result.factors).toContain('mixer_usage');
+      expect(result.factors).toContain('layering_pattern');
+    }, 10000);
+
+    // 新增测试用例：闪电贷攻击测试
+    it('should detect flash loan attacks', async () => {
+      // 创建闪电贷攻击事件
+      const flashLoanEvent = {
+        ...mockEvent,
+        type: EventType.CONTRACT_CALL,
+        methodName: 'flashLoan',
+        value: parseUnits('1000000', 18).toString(), // 大额闪电贷
+        params: {
+          loanAmount: parseUnits('1000000', 18).toString(),
+          protocol: 'aave',
+        },
+        metadata: {
+          isFlashLoan: true,
+          gasUsed: 5000000, // 高gas消耗
+        },
+      };
+
+      // 修改 MLModel 和 RiskPatternAnalyzer 的返回值
+      const { MLModel } = require('../../../analyzer/MLModel');
+      const { RiskPatternAnalyzer } = require('../../../analyzer/RiskPatternAnalyzer');
+      const { MEVDetector } = require('../../../analyzer/MEVDetector');
+
+      MLModel.analyzeRisk.mockResolvedValue({
+        score: 0.9,
+        factors: ['flash_loan_attack', 'high_value'],
+        confidence: 0.95,
+      });
+
+      RiskPatternAnalyzer.evaluate.mockResolvedValue({
+        score: 0.95,
+        factors: ['attack_pattern', 'high_gas_usage'],
+        confidence: 0.9,
+      });
+
+      MEVDetector.detect.mockResolvedValue(true);
+
+      const result = await riskAnalyzer.analyze(flashLoanEvent, mockProfile);
+
+      // 验证风险等级
+      expect(result.score).toBeGreaterThanOrEqual(0.9);
+      expect(result.level).toBe(RiskLevel.CRITICAL);
+      expect(result.factors).toContain('flash_loan_attack');
+      expect(result.factors).toContain('attack_pattern');
+      expect(result.factors).toContain('MEV行为');
+    }, 10000);
+
+    // 新增测试用例：智能合约漏洞利用测试
+    it('should detect smart contract exploit transactions', async () => {
+      // 创建合约漏洞利用事件
+      const exploitEvent = {
+        ...mockEvent,
+        type: EventType.CONTRACT_CALL,
+        methodName: 'execute',
+        to: '0xvulnerableContract',
+        params: {
+          calldata: '0xdeadbeef',
+          target: '0xvictimContract',
+        },
+        metadata: {
+          reentrant: true,
+          unusualCallPattern: true,
+        },
+      };
+
+      // 修改 MLModel 和 RiskPatternAnalyzer 的返回值
+      const { MLModel } = require('../../../analyzer/MLModel');
+      const { RiskPatternAnalyzer } = require('../../../analyzer/RiskPatternAnalyzer');
+
+      MLModel.analyzeRisk.mockResolvedValue({
+        score: 0.95,
+        factors: ['contract_exploit', 'reentrancy'],
+        confidence: 0.9,
+      });
+
+      RiskPatternAnalyzer.evaluate.mockResolvedValue({
+        score: 0.9,
+        factors: ['exploit_pattern', 'unusual_call_sequence'],
+        confidence: 0.95,
+      });
+
+      const result = await riskAnalyzer.analyze(exploitEvent, mockProfile);
+
+      // 验证风险等级
+      expect(result.score).toBeGreaterThanOrEqual(0.9);
+      expect(result.level).toBe(RiskLevel.CRITICAL);
+      expect(result.factors).toContain('contract_exploit');
+      expect(result.factors).toContain('reentrancy');
+      expect(result.factors).toContain('exploit_pattern');
+    }, 10000);
+
+    // 新增测试用例：市场操纵测试
+    it('should detect market manipulation transactions', async () => {
+      // 创建市场操纵事件
+      const manipulationEvent = {
+        ...mockEvent,
+        type: EventType.CONTRACT_CALL,
+        methodName: 'swap',
+        value: parseUnits('500', 18).toString(), // 大额交易
+        params: {
+          tokenIn: '0xtoken1',
+          tokenOut: '0xtoken2',
+          amountIn: parseUnits('500', 18).toString(),
+        },
+        metadata: {
+          priceImpact: 0.15, // 15%价格影响
+          marketVolume: 0.3, // 占市场交易量30%
+        },
+      };
+
+      // 修改地址画像
+      mockProfile.transactionCount = 5000; // 高频交易
+      mockProfile.tags = ['whale', 'high_volume_trader'];
+
+      // 修改 MLModel 和 RiskPatternAnalyzer 的返回值
+      const { MLModel } = require('../../../analyzer/MLModel');
+      const { RiskPatternAnalyzer } = require('../../../analyzer/RiskPatternAnalyzer');
+      const { MEVDetector } = require('../../../analyzer/MEVDetector');
+
+      MLModel.analyzeRisk.mockResolvedValue({
+        score: 0.85,
+        factors: ['market_manipulation', 'price_impact'],
+        confidence: 0.9,
+      });
+
+      RiskPatternAnalyzer.evaluate.mockResolvedValue({
+        score: 0.8,
+        factors: ['pump_dump_pattern', 'whale_activity'],
+        confidence: 0.85,
+      });
+
+      MEVDetector.detect.mockResolvedValue(true);
+
+      const result = await riskAnalyzer.analyze(manipulationEvent, mockProfile);
+
+      // 验证风险等级
+      expect(result.score).toBeGreaterThanOrEqual(0.8);
+      expect(result.level).toBe(RiskLevel.HIGH);
+      expect(result.factors).toContain('market_manipulation');
+      expect(result.factors).toContain('pump_dump_pattern');
+      expect(result.factors).toContain('MEV行为');
+    }, 10000);
+
+    // 新增测试用例：时间序列分析测试
+    it('should analyze time series patterns correctly', async () => {
+      // 创建具有时间序列特征的事件
+      const timeSeriesEvent = {
+        ...mockEvent,
+        metadata: {
+          timeSeriesData: {
+            hourlyVolume: [1, 2, 5, 20, 50, 100], // 突然增加
+            dailyTransactionCount: [10, 12, 15, 18, 50, 100], // 突然增加
+            weeklyUniqueAddresses: [5, 7, 8, 10, 50, 100], // 突然增加
+          },
+        },
+      };
+
+      // 修改 RiskPatternAnalyzer 的返回值，模拟时间序列分析
+      const { RiskPatternAnalyzer } = require('../../../analyzer/RiskPatternAnalyzer');
+      RiskPatternAnalyzer.evaluate.mockResolvedValue({
+        score: 0.7,
+        factors: ['sudden_volume_increase', 'abnormal_activity_spike'],
+        confidence: 0.85,
+        timeSeriesFeatures: {
+          volumeZScore: 3.5, // 高于3个标准差
+          transactionCountZScore: 4.2,
+          addressGrowthRate: 5.0,
+        },
+      });
+
+      const result = await riskAnalyzer.analyze(timeSeriesEvent, mockProfile);
+
+      // 验证风险等级和时间序列特征
+      expect(result.score).toBeGreaterThanOrEqual(0.5);
+      expect(result.level).toBe(RiskLevel.MEDIUM);
+      expect(result.factors).toContain('sudden_volume_increase');
+      expect(result.factors).toContain('abnormal_activity_spike');
+      
+      // 验证特征包含时间序列分析结果
+      const timeSeriesFeature = result.features.find(f => 
+        f.description.includes('时间序列') || f.description.includes('Time Series'));
+      expect(timeSeriesFeature).toBeDefined();
+      expect(timeSeriesFeature?.score).toBeGreaterThanOrEqual(0.5);
+    }, 10000);
   });
-});
+}); 

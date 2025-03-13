@@ -69,34 +69,45 @@ export const testConfig: AppConfig = {
   },
 };
 
-// 模拟 Redis 连接
-jest.mock('../database/redis', () => ({
-  redis: {
-    on: jest.fn(),
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
-    exists: jest.fn(),
-  },
-  cache: {
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
-    del: jest.fn().mockResolvedValue(undefined),
-    exists: jest.fn().mockResolvedValue(false),
-  },
-}));
+// 模拟 Redis
+jest.mock('../database/redis', () => {
+  return {
+    redis: {
+      on: jest.fn(),
+      get: jest.fn(),
+      set: jest.fn(),
+      setex: jest.fn(),
+      del: jest.fn(),
+      exists: jest.fn(),
+    },
+    cache: {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      exists: jest.fn(),
+    }
+  };
+});
 
 // 模拟 MongoDB 连接
 jest.mock('mongoose', () => {
-  const mongoose = jest.requireActual('mongoose');
   return {
-    ...mongoose,
-    connect: jest.fn().mockResolvedValue(undefined),
+    connect: jest.fn().mockReturnValue(Promise.resolve()),
     connection: {
-      ...mongoose.connection,
       on: jest.fn(),
       once: jest.fn(),
     },
+    Schema: jest.fn().mockImplementation(() => ({
+      index: jest.fn().mockReturnThis(),
+    })),
+    model: jest.fn().mockImplementation(() => ({
+      create: jest.fn(),
+      findOne: jest.fn(),
+      find: jest.fn().mockReturnThis(),
+      sort: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      exec: jest.fn(),
+    })),
   };
 });
 
@@ -129,9 +140,9 @@ beforeAll(async () => {
   testLogger.info('Starting test suite');
 
   // 禁用控制台输出
-  jest.spyOn(console, 'log').mockImplementation(() => {});
-  jest.spyOn(console, 'error').mockImplementation(() => {});
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'log').mockImplementation(() => { });
+  jest.spyOn(console, 'error').mockImplementation(() => { });
+  jest.spyOn(console, 'warn').mockImplementation(() => { });
 });
 
 afterAll(async () => {
