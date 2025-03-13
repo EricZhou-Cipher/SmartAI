@@ -8,10 +8,29 @@ jobs:
   auto_test:
     runs-on: ubuntu-latest
     steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          # 移除缓存配置，使用fresh install
+
+      - name: 清除缓存
+        run: |
+          echo "清除缓存..."
+          rm -rf node_modules || true
+          rm -rf ~/.npm || true
+          echo "✅ 缓存已清除"
+
       - name: 显示环境信息
         run: |
           echo "当前时间: $(date)"
           echo "当前目录: $(pwd)"
+          echo "GitHub工作区: $GITHUB_WORKSPACE"
           echo "目录内容:"
           ls -la
 
@@ -19,8 +38,8 @@ jobs:
           node -v
           echo "NPM版本:"
           npm -v
-          echo "检查yarn是否存在:"
-          which yarn || echo "yarn不存在"
+          echo "验证npm可用:"
+          npm --version
 
       - name: 创建独立测试
         run: |
@@ -29,12 +48,68 @@ jobs:
 
           # 运行测试
           node auto-test.js
-          echo "✅ 自动触发测试通过"
+          echo "✅ 基本测试通过"
 
-      - name: 创建虚拟babel文件
+      - name: 安装backend依赖
         run: |
-          # 创建虚拟babel文件
+          echo "安装backend依赖..."
+          cd backend
+          # 使用npm替代yarn，清除缓存后安装
+          npm cache clean --force
+          npm install
+          echo "✅ 依赖安装完成"
+
+      - name: 检查Babel安装情况
+        run: |
+          cd backend
+          echo "=== backend目录中的Babel包检查 ==="
+          find node_modules -name "@babel" -type d | sort || echo "找不到@babel目录"
+          find node_modules -name "babel-*" | sort || echo "找不到babel-*包"
+
+          echo "=== 尝试安装Babel核心包 ==="
+          npm install --save-dev @babel/core@7.22.5 @babel/preset-env@7.22.5 @babel/plugin-transform-modules-commonjs@7.22.5 babel-jest@29.5.0
+
+          echo "=== 再次检查Babel安装情况 ==="
+          ls -la node_modules/@babel || echo "@babel目录不存在"
+
+          echo "=== 创建babel.config.js（如果不存在） ==="
+          if [ ! -f "babel.config.js" ]; then
+            echo 'module.exports = {
+              presets: [
+                ["@babel/preset-env", { targets: { node: "current" }, modules: "commonjs" }],
+                "@babel/preset-typescript"
+              ],
+              plugins: [
+                "@babel/plugin-transform-modules-commonjs"
+              ],
+              sourceType: "unambiguous"
+            };' > babel.config.js
+            echo "已创建babel.config.js"
+          else
+            echo "babel.config.js已存在:"
+            cat babel.config.js
+          fi
+
+      - name: 测试Babel
+        run: |
+          cd backend
+          echo "创建测试文件..."
+          echo "const test = async () => { await Promise.resolve(1); return 42; };" > babel-test.js
+
+          echo "=== 尝试使用babel编译 ==="
+          npm install --save-dev @babel/cli@7.22.5
+          if [ -f "node_modules/.bin/babel" ]; then
+            ./node_modules/.bin/babel babel-test.js --out-file babel-test.compiled.js || echo "编译失败"
+            cat babel-test.compiled.js || echo "编译后文件不存在"
+          else
+            echo "babel CLI不可用"
+          fi
+
+          echo "✅ Babel测试完成"
+
+      - name: 创建虚拟babel文件（备用方案）
+        run: |
+          # 创建虚拟babel文件作为备用
           echo 'module.exports = { plugins: [] };' > babel-virtual-resolve-base.js
           cat babel-virtual-resolve-base.js
-
-          echo "✅ 虚拟文件创建成功"
+          echo "✅ 虚拟Babel文件创建成功"
