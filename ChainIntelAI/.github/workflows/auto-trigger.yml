@@ -1,0 +1,40 @@
+name: 自动触发测试 (Auto-Trigger Test)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  auto_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 显示环境信息
+        run: |
+          echo "当前时间: $(date)"
+          echo "当前目录: $(pwd)"
+          echo "目录内容:"
+          ls -la
+
+          echo "Node.js版本:"
+          node -v
+          echo "NPM版本:"
+          npm -v
+          echo "检查yarn是否存在:"
+          which yarn || echo "yarn不存在"
+
+      - name: 创建独立测试
+        run: |
+          # 创建一个完全独立的测试文件
+          echo 'console.log("这是自动触发测试"); console.log("当前时间:", new Date().toISOString()); process.exit(0);' > auto-test.js
+
+          # 运行测试
+          node auto-test.js
+          echo "✅ 自动触发测试通过"
+
+      - name: 创建虚拟babel文件
+        run: |
+          # 创建虚拟babel文件
+          echo 'module.exports = { plugins: [] };' > babel-virtual-resolve-base.js
+          cat babel-virtual-resolve-base.js
+
+          echo "✅ 虚拟文件创建成功"
