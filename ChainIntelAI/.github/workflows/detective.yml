@@ -1,0 +1,126 @@
+name: 工作流侦探 (Workflow Detective)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  find_workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 寻找所有工作流文件
+        run: |
+          echo "=== 查找所有工作流文件 ==="
+          find . -type f -name "*.yml" -o -name "*.yaml" | grep -i workflow
+
+          echo "=== 检查常见位置的工作流文件 ==="
+          ls -la .github/workflows/ || echo ".github/workflows/ 不存在"
+          ls -la backend/.github/workflows/ || echo "backend/.github/workflows/ 不存在"
+          ls -la ChainIntelAI/.github/workflows/ || echo "ChainIntelAI/.github/workflows/ 不存在"
+
+          echo "=== 查看活跃的工作流文件内容 ==="
+
+          if [ -d ".github/workflows" ]; then
+            echo "检查 .github/workflows 目录:"
+            for file in .github/workflows/*.yml; do
+              echo "=========================="
+              echo "文件: $file"
+              echo "------------------------"
+              cat "$file"
+              echo "=========================="
+            done
+          fi
+
+          if [ -d "backend/.github/workflows" ]; then
+            echo "检查 backend/.github/workflows 目录:"
+            for file in backend/.github/workflows/*.yml; do
+              echo "=========================="
+              echo "文件: $file"
+              echo "------------------------"
+              cat "$file"
+              echo "=========================="
+            done
+          fi
+
+          if [ -d "ChainIntelAI/.github/workflows" ]; then
+            echo "检查 ChainIntelAI/.github/workflows 目录:"
+            for file in ChainIntelAI/.github/workflows/*.yml; do
+              echo "=========================="
+              echo "文件: $file"
+              echo "------------------------"
+              cat "$file"
+              echo "=========================="
+            done
+          fi
+
+      - name: 检查GitHub环境
+        run: |
+          echo "=== GitHub环境变量 ==="
+          echo "GITHUB_WORKFLOW: $GITHUB_WORKFLOW"
+          echo "GITHUB_ACTION: $GITHUB_ACTION"
+          echo "GITHUB_ACTIONS: $GITHUB_ACTIONS"
+          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "GITHUB_SHA: $GITHUB_SHA"
+          echo "GITHUB_REF: $GITHUB_REF"
+
+          echo "=== 当前目录结构 ==="
+          pwd
+          ls -la
+
+          echo "=== 查看当前运行的进程 ==="
+          ps aux
+
+          echo "=== 查看Node.js和npm/yarn版本 ==="
+          node -v
+          npm -v
+          which yarn || echo "yarn 不存在"
+          if command -v yarn &> /dev/null; then
+            yarn -v
+          fi
+
+      - name: 检查所有已安装的包
+        run: |
+          echo "=== npm 全局包 ==="
+          npm list -g --depth=0 || echo "无法列出全局包"
+
+          echo "=== 当前目录下的 node_modules ==="
+          if [ -d "node_modules" ]; then
+            ls -la node_modules | grep babel || echo "未找到 babel 包"
+            if [ -d "node_modules/@babel" ]; then
+              ls -la node_modules/@babel
+            fi
+          else
+            echo "node_modules 不存在"
+          fi
+
+          echo "=== backend 目录下的 node_modules ==="
+          if [ -d "backend/node_modules" ]; then
+            ls -la backend/node_modules | grep babel || echo "未找到 babel 包"
+            if [ -d "backend/node_modules/@babel" ]; then
+              ls -la backend/node_modules/@babel
+            fi
+          else
+            echo "backend/node_modules 不存在"
+          fi
+
+      - name: 获取GitHub Actions运行历史
+        run: |
+          echo "=== 最近的 GitHub Actions 运行历史 ==="
+          curl -H "Accept: application/vnd.github.v3+json" \
+               -H "Authorization: token ${{ github.token }}" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs?per_page=5" | \
+          jq '.workflow_runs[] | {id, name, workflow_id, event, status, conclusion, created_at}'
+
+          echo "=== 所有工作流定义 ==="
+          curl -H "Accept: application/vnd.github.v3+json" \
+               -H "Authorization: token ${{ github.token }}" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/workflows" | \
+          jq '.workflows[] | {id, name, path, state}'
