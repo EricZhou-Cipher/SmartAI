@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-          cache-dependency-path: "./backend/package-lock.json"
+          cache-dependency-path: "./backend/package.json"
 
       - name: 🧹 清除 npm 缓存
         run: |
@@ -124,7 +124,20 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-          cache-dependency-path: "./frontend/package-lock.json"
+          cache-dependency-path: "./frontend/package.json"
+
+      - name: 🧹 清除 npm 缓存
+        run: |
+          npm cache clean --force
+          echo "已清除 npm 缓存"
+
+      - name: 🧹 清除 node_modules
+        working-directory: ./frontend
+        run: |
+          if [ -d "node_modules" ]; then
+            rm -rf node_modules
+            echo "已移除 node_modules 目录"
+          fi
 
       - name: 📥 安装前端依赖
         working-directory: ./frontend
