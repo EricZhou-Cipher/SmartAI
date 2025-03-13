@@ -28,18 +28,13 @@ jobs:
 
       - name: 显示环境信息
         run: |
-          echo "当前时间: $(date)"
-          echo "当前目录: $(pwd)"
-          echo "GitHub工作区: $GITHUB_WORKSPACE"
-          echo "目录内容:"
-          ls -la
+          echo "Node.js 版本: $(node -v)"
+          echo "npm 版本: $(npm -v)"
+          echo "操作系统: $(uname -a)"
 
-          echo "Node.js版本:"
-          node -v
-          echo "NPM版本:"
-          npm -v
-          echo "验证npm可用:"
-          npm --version
+      - name: 安装后端依赖
+        working-directory: ./backend
+        run: npm install --no-fund --network-timeout 300000
 
       - name: 创建独立测试
         run: |
@@ -49,15 +44,6 @@ jobs:
           # 运行测试
           node auto-test.js
           echo "✅ 基本测试通过"
-
-      - name: 安装backend依赖
-        run: |
-          echo "安装backend依赖..."
-          cd backend
-          # 使用npm替代yarn，清除缓存后安装
-          npm cache clean --force
-          npm install
-          echo "✅ 依赖安装完成"
 
       - name: 检查Babel安装情况
         run: |

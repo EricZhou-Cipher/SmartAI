@@ -45,11 +45,6 @@ jobs:
         working-directory: ./backend
         run: npm install --no-fund --network-timeout 300000
 
-      - name: Install Babel explicitly
-        working-directory: ./backend
-        run: |
-          npm install --save-dev @babel/core@7.22.5 @babel/preset-env@7.22.5 @babel/plugin-transform-modules-commonjs@7.22.5 babel-jest@29.5.0 @babel/cli@7.22.5
-
       - name: Display installed Babel packages
         working-directory: ./backend
         run: |

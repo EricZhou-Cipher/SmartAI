@@ -28,6 +28,10 @@ jobs:
           node-version: "18"
           # 移除缓存配置，使用fresh install
 
+      - name: 安装后端依赖
+        working-directory: ./backend
+        run: npm install --no-fund --network-timeout 300000
+
       - name: 安装根目录依赖
         run: |
           echo "安装根目录依赖..."
