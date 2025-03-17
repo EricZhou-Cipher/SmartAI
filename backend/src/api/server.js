@@ -41,7 +41,7 @@ app.get('/health', (req, res) => {
 
   res.json({
     status,
-    version: process.env.npm_package_version || '1.0.0',
+    version: process.env.PACKAGE_VERSION || '1.0.0',
     timestamp: new Date().toISOString(),
     degradedEndpoints: stats.degradedEndpoints,
     metrics: {

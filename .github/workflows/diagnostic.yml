@@ -3,10 +3,10 @@ name: 系统诊断 (System Diagnostic)
 on:
   workflow_dispatch:
     inputs:
-      reason:
-        description: "运行诊断的原因"
+      diagnostic_reason:
+        description: "诊断原因"
         required: true
-        default: "系统问题诊断"
+        default: "例行检查"
       diagnostic_level:
         description: "诊断级别"
         required: true
@@ -22,31 +22,44 @@ jobs:
     name: 系统诊断
     runs-on: ubuntu-latest
     steps:
-      - name: 🔍 显示环境信息
+      - name: 📋 显示诊断信息
         run: |
-          echo "当前时间: $(date)"
-          echo "当前目录: $(pwd)"
-          echo "目录内容:"
-          ls -la
+          echo "诊断原因: ${{ inputs.diagnostic_reason }}"
+          echo "诊断级别: ${{ inputs.diagnostic_level }}"
+          echo "运行ID: ${{ github.run_id }}"
+          echo "触发事件: ${{ github.event_name }}"
 
+      - name: 🔍 检查环境
+        run: |
+          echo "操作系统信息:"
+          uname -a
+          cat /etc/os-release
+
+          echo "磁盘空间:"
+          df -h
+
+          echo "内存使用情况:"
+          free -h
+
+          echo "CPU信息:"
+          cat /proc/cpuinfo | grep "model name" | head -n 1
+
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+
+      - name: 🔧 检查Node.js和Yarn
+        run: |
           echo "Node.js版本:"
           node -v
-          echo "NPM版本:"
-          npm -v
-          echo "检查yarn是否存在:"
-          which yarn || echo "yarn不存在"
 
-          echo "GitHub环境变量:"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
-          echo "GITHUB_REF: $GITHUB_REF"
-          echo "GITHUB_SHA: $GITHUB_SHA"
-          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+          echo "Yarn版本:"
+          yarn -v || echo "Yarn未安装"
 
-      - name: 🚀 检出代码
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+          echo "检查Yarn是否存在:"
+          which yarn || echo "找不到yarn命令"
+
+          echo "检查npm是否存在:"
+          which npm || echo "找不到npm命令"
 
       - name: 📋 检查工作流文件
         run: |
@@ -76,6 +89,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: "yarn"
 
       - name: 🧹 清除缓存
         if: inputs.diagnostic_level != 'basic'
@@ -84,19 +98,19 @@ jobs:
           rm -rf node_modules || true
           rm -rf backend/node_modules || true
           rm -rf frontend/node_modules || true
-          rm -rf ~/.npm || true
-          npm cache clean --force || true
+          rm -rf ~/.yarn/cache || true
+          yarn cache clean || true
           echo "✅ 缓存已清除"
 
       - name: 📥 安装后端依赖
         if: inputs.diagnostic_level == 'advanced' || inputs.diagnostic_level == 'emergency'
         working-directory: ./backend
-        run: npm install --no-fund --network-timeout 300000
+        run: yarn install --network-timeout 300000
 
       - name: 📥 安装前端依赖
         if: inputs.diagnostic_level == 'advanced' || inputs.diagnostic_level == 'emergency'
         working-directory: ./frontend
-        run: npm install --no-fund
+        run: yarn install
 
       - name: 🔧 检查 Babel 配置
         if: inputs.diagnostic_level == 'advanced' || inputs.diagnostic_level == 'emergency'

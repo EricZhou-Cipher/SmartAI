@@ -30,7 +30,7 @@ esac
 # 确保Artillery已安装
 if ! command -v artillery &> /dev/null; then
   echo "Artillery未安装，正在安装..."
-  npm install -g artillery
+  yarn global add artillery
 fi
 
 # 创建结果目录

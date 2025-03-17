@@ -22,7 +22,7 @@ async function bootstrap(): Promise<void> {
   const traceId = generateTraceId();
   logger.info(`应用程序启动 [${traceId}]`, { 
     env: process.env.NODE_ENV, 
-    version: process.env.npm_package_version 
+    version: process.env.PACKAGE_VERSION 
   });
 
   try {

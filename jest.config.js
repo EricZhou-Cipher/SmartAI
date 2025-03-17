@@ -1,23 +1,18 @@
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
-  roots: ["<rootDir>/backend"],
-  testMatch: ["**/*.test.ts"],
-  transform: {
-    "^.+\\.tsx?$": [
-      "ts-jest",
-      {
-        tsconfig: "tsconfig.json",
-      },
-    ],
-  },
+  testMatch: ["**/tests/**/*.test.js", "**/tests/**/*.test.ts"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
-  collectCoverage: true,
-  coverageDirectory: "coverage",
-  coverageReporters: ["text", "lcov"],
-  coveragePathIgnorePatterns: ["/node_modules/", "/dist/"],
-  setupFilesAfterEnv: ["<rootDir>/backend/tests/setup.ts"],
+  transform: {
+    "^.+\\.(ts|tsx)$": "ts-jest",
+  },
   moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/backend/$1",
+    "^@/(.*)$": "<rootDir>/$1",
+  },
+  setupFilesAfterEnv: [],
+  globals: {
+    "ts-jest": {
+      tsconfig: "tsconfig.json",
+    },
   },
 };

@@ -6,8 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "cross-env PACKAGE_VERSION=$npm_package_version node dist/index.js",
+    "dev": "cross-env PACKAGE_VERSION=$npm_package_version ts-node-dev --respawn --transpile-only src/index.ts",
     "test": "jest --config=jest.config.js --detectOpenHandles",
     "test:watch": "jest --watch --config=jest.config.js",
     "test:coverage": "jest --coverage --config=jest.config.js",
@@ -25,9 +25,9 @@
     "test:telemetry": "NODE_ENV=test jest --testMatch=\"**/tests/**/*telemetry*.test.ts\" --config=jest.config.js --verbose",
     "test:telemetry:ci": "NODE_ENV=test jest --testMatch=\"**/tests/**/*telemetry*.test.ts\" --config=jest.config.js --ci --verbose",
     "lint": "eslint . --ext .ts",
-    "lint:fix": "yarn eslint . --ext .ts --fix",
-    "type-check": "yarn tsc --noEmit",
-    "prepare": "yarn husky install",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "type-check": "tsc --noEmit",
+    "prepare": "husky install",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
@@ -102,6 +102,7 @@
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.6",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "cross-env": "^7.0.3"
   }
 }

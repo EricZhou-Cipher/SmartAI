@@ -33,13 +33,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
+          cache: "yarn"
           cache-dependency-path: "./backend/package.json"
-
-      - name: 🧹 清除 npm 缓存
-        run: |
-          npm cache clean --force
-          echo "已清除 npm 缓存"
 
       - name: 🧹 清除 node_modules
         working-directory: ./backend
@@ -51,7 +46,7 @@ jobs:
 
       - name: 📥 安装后端依赖
         working-directory: ./backend
-        run: HUSKY=0 npm install --no-fund --network-timeout=300000
+        run: HUSKY=0 yarn install --frozen-lockfile --network-timeout=300000
         env:
           HUSKY: 0
 
@@ -59,11 +54,11 @@ jobs:
         working-directory: ./backend
         run: |
           echo "已安装的 Babel 包:"
-          npm list @babel/core @babel/preset-env @babel/plugin-transform-modules-commonjs babel-jest @babel/cli || true
+          yarn list --pattern "@babel/core|@babel/preset-env|@babel/plugin-transform-modules-commonjs|babel-jest|@babel/cli" || true
 
       - name: 🧪 运行测试并生成覆盖率报告
         working-directory: ./backend
-        run: npm run test:ci || echo "后端测试暂时跳过"
+        run: yarn test:ci || echo "后端测试暂时跳过"
         env:
           NODE_ENV: test
           JWT_SECRET: test_secret
@@ -128,13 +123,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
-          cache-dependency-path: "./frontend/package.json"
-
-      - name: 🧹 清除 npm 缓存
-        run: |
-          npm cache clean --force
-          echo "已清除 npm 缓存"
+          cache: "yarn"
+          cache-dependency-path: "./frontend/yarn.lock"
 
       - name: 🧹 清除 node_modules
         working-directory: ./frontend
@@ -146,17 +136,17 @@ jobs:
 
       - name: 📥 安装前端依赖
         working-directory: ./frontend
-        run: HUSKY=0 npm install --no-fund
+        run: HUSKY=0 yarn install --frozen-lockfile
         env:
           HUSKY: 0
 
       - name: 🧪 运行前端测试
         working-directory: ./frontend
-        run: npm test || echo "前端测试暂时跳过"
+        run: yarn test || echo "前端测试暂时跳过"
 
       - name: 🔍 运行前端代码检查
         working-directory: ./frontend
-        run: npm run lint || echo "前端代码检查暂时跳过"
+        run: yarn lint || echo "前端代码检查暂时跳过"
 
   build:
     name: 构建项目
@@ -172,33 +162,35 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          # 移除缓存配置，避免找不到锁定文件的错误
+          cache: "yarn"
+          cache-dependency-path: "./backend/package.json"
 
       - name: 📥 安装后端依赖
         working-directory: ./backend
-        run: HUSKY=0 npm install --no-fund --network-timeout=300000
+        run: HUSKY=0 yarn install --frozen-lockfile --network-timeout=300000
         env:
           HUSKY: 0
 
       - name: 🏗️ 构建后端
         working-directory: ./backend
-        run: npm run build || echo "后端构建暂时跳过"
+        run: yarn build || echo "后端构建暂时跳过"
 
       - name: 📦 设置 Node.js (前端)
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          # 移除缓存配置，避免找不到锁定文件的错误
+          cache: "yarn"
+          cache-dependency-path: "./frontend/yarn.lock"
 
       - name: 📥 安装前端依赖
         working-directory: ./frontend
-        run: HUSKY=0 npm install --no-fund
+        run: HUSKY=0 yarn install --frozen-lockfile
         env:
           HUSKY: 0
 
       - name: 🏗️ 构建前端
         working-directory: ./frontend
-        run: npm run build || echo "前端构建暂时跳过"
+        run: yarn build || echo "前端构建暂时跳过"
 
       - name: 📤 上传构建产物
         uses: actions/upload-artifact@v4

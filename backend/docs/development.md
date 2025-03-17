@@ -25,7 +25,7 @@ backend/
 1. **安装依赖**
 
    ```bash
-   npm install
+   yarn install
    ```
 
 2. **配置环境变量**
@@ -39,13 +39,13 @@ backend/
 
    ```bash
    cd hardhat
-   npx hardhat node
+   yarn hardhat node
    ```
 
 4. **部署测试合约**
 
    ```bash
-   npx hardhat run scripts/deploy.js --network localhost
+   yarn hardhat run scripts/deploy.js --network localhost
    ```
 
 5. **启动监听器**
@@ -74,7 +74,7 @@ backend/
 3. 运行测试
 
    ```bash
-   npm test
+   yarn test
    ```
 
 4. 提交代码
@@ -120,24 +120,24 @@ backend/
 1. **运行单元测试**
 
    ```bash
-   npm run test:unit
+   yarn test:unit
    ```
 
 2. **运行集成测试**
 
    ```bash
-   npm run test:integration
+   yarn test:integration
    ```
 
 3. **运行性能测试**
 
    ```bash
-   npm run test:performance
+   yarn test:performance
    ```
 
 4. **查看测试覆盖率**
    ```bash
-   npm run coverage
+   yarn coverage
    ```
 
 ### 4. 事件重放

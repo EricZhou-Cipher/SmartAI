@@ -1,4 +1,4 @@
-name: Hardhat合约测试
+name: Hardhat 智能合约测试
 
 on:
   push:
@@ -18,27 +18,27 @@ jobs:
         working-directory: backend/hardhat
 
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v3
+      - name: 🚀 检出代码
+        uses: actions/checkout@v4
 
-      - name: 设置Node.js
-        uses: actions/setup-node@v3
+      - name: 📦 设置 Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 18
           cache: 'yarn'
           cache-dependency-path: backend/hardhat/yarn.lock
 
-      - name: 安装依赖
+      - name: 📥 安装依赖
         run: yarn install --frozen-lockfile
 
-      - name: 编译合约
+      - name: 🔨 编译合约
         run: yarn compile
 
-      - name: 运行测试
+      - name: 🧪 运行测试
         run: yarn test
 
-      - name: 确保deployed目录存在
+      - name: 📁 确保 deployed 目录存在
         run: mkdir -p deployed
 
-      - name: 测试部署脚本
+      - name: 🚢 测试部署脚本
         run: yarn deploy

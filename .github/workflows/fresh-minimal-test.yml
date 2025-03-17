@@ -13,21 +13,20 @@ jobs:
   basic_test:
     runs-on: ubuntu-latest
     steps:
-      - name: 清除缓存
+      - name: 🧹 准备最小化测试环境
         run: |
-          echo "清除缓存..."
+          echo "准备测试环境..."
+          # 移除可能干扰测试的目录
           rm -rf node_modules || true
-          rm -rf ~/.npm || true
-          npm cache clean --force || true
-          echo "✅ 缓存已清除"
+          echo "✅ 测试环境已准备"
 
-      - name: 直接运行Node.js测试
+      - name: 📊 直接运行 Node.js 测试
         run: |
           # 不检出代码，完全独立于仓库
           echo "显示环境信息:"
           node -v
-          npm -v
-          npm --version
+          yarn -v
+          yarn --version
 
           # 创建一个极简测试文件
           echo 'console.log("这是一个独立的测试"); console.log("当前运行环境:", process.env.NODE_ENV); process.exit(0);' > test.js
@@ -36,18 +35,19 @@ jobs:
           node test.js
           echo "✅ 基本测试通过"
 
-      - name: 检出代码
-        uses: actions/checkout@v3
+      - name: 🚀 检出代码
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: 设置 Node.js
-        uses: actions/setup-node@v3
+      - name: 📦 设置 Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "18"
-          # 移除缓存配置，使用fresh install
+          cache: "yarn"
+          # 使用fresh install
 
-      - name: 最小化Babel测试
+      - name: 🧪 最小化 Babel 测试
         run: |
           # 创建最小项目结构
           mkdir -p babel-mini-test/node_modules
@@ -69,7 +69,7 @@ jobs:
           echo 'module.exports = { plugins: ["@babel/plugin-transform-modules-commonjs"] };' > babel.config.js
 
           # 安装依赖
-          npm install
+          yarn install --frozen-lockfile
 
           # 创建测试文件
           echo 'const test = () => "Babel is working"; export default test;' > test.js
@@ -86,7 +86,7 @@ jobs:
 
           echo "✅ 最小Babel测试完成"
 
-      - name: 创建虚拟babel文件
+      - name: 📝 创建虚拟 babel 文件
         run: |
           # 创建虚拟babel文件
           echo 'module.exports = { plugins: [] };' > babel-virtual-resolve-base.js

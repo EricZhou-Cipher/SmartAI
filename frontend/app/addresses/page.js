@@ -1,459 +1,444 @@
-"use client";
-import { useState } from "react";
+'use client';
+import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import PageHeader from '../components/PageHeader';
+import SearchBar from '../components/SearchBar';
+import RiskBadge from '../components/RiskBadge';
+import AddressFormatter from '../components/AddressFormatter';
+import DateFormatter from '../components/DateFormatter';
+import AddressAnalysis from '../../components/AddressAnalysis';
+import SimilarAddresses from '../../components/SimilarAddresses';
+import { getAddressProfile } from '../utils/api';
+import { AddressSkeleton } from '../../components/Skeleton';
+import { useSearchParams } from 'next/navigation';
+import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
 
+// 动态导入图表组件
+const AddressAnalysisChart = dynamic(() => import('../../components/AddressAnalysisChart'), {
+  loading: () => (
+    <div className="h-64 flex items-center justify-center bg-gray-100 rounded">
+      <div className="text-center text-gray-500">
+        <p>加载地址分析图表...</p>
+      </div>
+    </div>
+  ),
+  ssr: false,
+});
+
+const TransactionFlowChart = dynamic(() => import('../../components/TransactionFlowChart'), {
+  loading: () => (
+    <div className="h-64 flex items-center justify-center bg-gray-100 rounded">
+      <div className="text-center text-gray-500">
+        <p>加载交易流图表...</p>
+      </div>
+    </div>
+  ),
+  ssr: false,
+});
+
+// 动画变体
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 300,
+      damping: 24,
+    },
+  },
+};
+
+// 地址页面组件
 export default function Addresses() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const { t } = useTranslation();
   const [addressProfile, setAddressProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isSimilarAddressesLoading, setSimilarAddressesLoading] = useState(false);
+  const [similarAddresses, setSimilarAddresses] = useState([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const searchParams = useSearchParams();
+
+  // 地址活动数据
+  const [addressActivityData, setAddressActivityData] = useState([]);
+
+  // 交易流向图数据
+  const [flowChartData, setFlowChartData] = useState({
+    nodes: [],
+    links: [],
+  });
 
   // 模拟地址数据
-  const mockAddressProfile = {
-    address: "0xabcdef1234567890abcdef1234567890abcdef12",
-    chainId: "1",
-    profile: {
-      firstSeen: 1634567890000,
-      lastSeen: 1634657890000,
-      transactionCount: 42,
-      balance: "10.5",
-      tags: ["exchange", "high-volume"],
-    },
-    risk: {
-      score: 0.2,
-      level: "low",
-      factors: [
+  const addressData = [
+    {
+      address: '0xabcdef1234567890abcdef1234567890abcdef12',
+      label: '交易所钱包',
+      balance: '1,234.56',
+      transactionCount: 5678,
+      lastActivity: Date.now() - 3600000,
+      riskLevel: 'low',
+      riskScore: 15,
+      tags: ['exchange', 'high-volume'],
+      chains: ['Ethereum', 'Polygon', 'Arbitrum'],
+      contracts: [
         {
-          type: "known-exchange",
-          description: "地址属于已知交易所",
-          score: 0.1,
+          address: '0x1234567890abcdef1234567890abcdef12345678',
+          name: 'USDT',
+          type: 'ERC20',
+          balance: '500,000',
+        },
+        {
+          address: '0x2345678901abcdef2345678901abcdef23456789',
+          name: 'USDC',
+          type: 'ERC20',
+          balance: '750,000',
         },
       ],
     },
-    relatedAddresses: [
-      {
-        address: "0x7890abcdef1234567890abcdef1234567890abcd",
-        transactionCount: 15,
-        lastInteraction: 1634657890000,
-      },
-      {
-        address: "0x890abcdef1234567890abcdef1234567890abcde",
-        transactionCount: 8,
-        lastInteraction: 1634657880000,
-      },
-      {
-        address: "0x90abcdef1234567890abcdef1234567890abcdef",
-        transactionCount: 5,
-        lastInteraction: 1634657870000,
-      },
-    ],
-    transactions: [
-      {
-        hash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-        type: "out",
-        to: "0x7890abcdef1234567890abcdef1234567890abcd",
-        value: "1.5",
-        timestamp: 1634657890000,
-      },
-      {
-        hash: "0x2345678901abcdef2345678901abcdef2345678901abcdef2345678901abcdef",
-        type: "in",
-        from: "0x890abcdef1234567890abcdef1234567890abcde",
-        value: "2.0",
-        timestamp: 1634657880000,
-      },
-      {
-        hash: "0x3456789012abcdef3456789012abcdef3456789012abcdef3456789012abcdef",
-        type: "out",
-        to: "0x90abcdef1234567890abcdef1234567890abcdef",
-        value: "0.5",
-        timestamp: 1634657870000,
-      },
-    ],
-    activityHistory: [
-      { date: "2023-03-01", count: 5 },
-      { date: "2023-03-02", count: 3 },
-      { date: "2023-03-03", count: 7 },
-      { date: "2023-03-04", count: 2 },
-      { date: "2023-03-05", count: 0 },
-      { date: "2023-03-06", count: 4 },
-      { date: "2023-03-07", count: 6 },
-      { date: "2023-03-08", count: 8 },
-      { date: "2023-03-09", count: 3 },
-      { date: "2023-03-10", count: 5 },
-      { date: "2023-03-11", count: 1 },
-      { date: "2023-03-12", count: 0 },
-      { date: "2023-03-13", count: 2 },
-      { date: "2023-03-14", count: 4 },
-      { date: "2023-03-15", count: 3 },
-    ],
-  };
+    {
+      address: '0xbcdef1234567890abcdef1234567890abcdef123',
+      label: '智能合约',
+      balance: '0.00',
+      transactionCount: 12345,
+      lastActivity: Date.now() - 86400000,
+      riskLevel: 'medium',
+      riskScore: 45,
+      tags: ['contract', 'defi'],
+      chains: ['Ethereum'],
+      contracts: [],
+    },
+    {
+      address: '0xcdef1234567890abcdef1234567890abcdef1234',
+      label: '高风险钱包',
+      balance: '98.76',
+      transactionCount: 456,
+      lastActivity: Date.now() - 259200000,
+      riskLevel: 'high',
+      riskScore: 85,
+      tags: ['suspicious', 'mixer-user'],
+      chains: ['Ethereum', 'BSC'],
+      contracts: [
+        {
+          address: '0x3456789012abcdef3456789012abcdef34567890',
+          name: 'WETH',
+          type: 'ERC20',
+          balance: '45.5',
+        },
+      ],
+    },
+  ];
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (!searchQuery) return;
+  // 模拟初始加载
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialLoading(false);
+    }, 1000);
 
-    // 模拟搜索结果
-    if (searchQuery.toLowerCase().includes("0x")) {
-      setAddressProfile(mockAddressProfile);
-    } else {
-      setAddressProfile(null);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 检查URL参数中是否有地址
+  useEffect(() => {
+    const address = searchParams.get('address');
+    if (address) {
+      handleSearch(address);
+    }
+  }, [searchParams]);
+
+  // 处理地址搜索
+  const handleSearch = async query => {
+    if (!query) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // 模拟 API 调用
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // 模拟搜索结果
+      const profile = addressData.find(addr => addr.address.toLowerCase() === query.toLowerCase());
+
+      if (profile) {
+        setAddressProfile(profile);
+
+        // 模拟生成地址活动数据
+        generateAddressActivityData(profile.address);
+
+        // 模拟生成交易流向图数据
+        generateFlowChartData(profile.address);
+
+        // 模拟生成相似地址
+        generateSimilarAddresses(profile.address);
+      } else {
+        setError('未找到匹配的地址');
+      }
+    } catch (err) {
+      setError('搜索过程中发生错误');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const formatDate = (timestamp) => {
-    return new Date(timestamp).toLocaleString("zh-CN");
-  };
+  // 生成地址活动数据
+  const generateAddressActivityData = address => {
+    // 模拟生成地址活动数据
+    const data = [];
+    const now = new Date();
 
-  const formatAddress = (address) => {
-    return `${address.substring(0, 6)}...${address.substring(
-      address.length - 4
-    )}`;
-  };
+    for (let i = 30; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
 
-  const getRiskLevelText = (level) => {
-    switch (level) {
-      case "high":
-        return "高风险";
-      case "medium":
-        return "中风险";
-      case "low":
-        return "低风险";
-      default:
-        return "未知";
+      // 随机生成交易数量和交易量
+      const transactionCount = Math.floor(Math.random() * 20) + 1;
+      const volume = Math.floor(Math.random() * 500) + 50;
+      const avgValue = volume / transactionCount;
+
+      // 根据交易量和交易数量计算风险分数
+      const riskScore = Math.min(
+        Math.floor(
+          (volume > 300 ? 50 : 20) + (transactionCount > 15 ? 30 : 10) + Math.random() * 20
+        ),
+        100
+      );
+
+      data.push({
+        date: date.toISOString().split('T')[0],
+        transactionCount,
+        volume,
+        avgValue,
+        riskScore,
+      });
     }
+
+    setAddressActivityData(data);
   };
 
-  const getRiskBadgeClass = (level) => {
-    switch (level) {
-      case "high":
-        return "bg-red-100 text-red-800";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800";
-      case "low":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+  // 生成交易流向图数据
+  const generateFlowChartData = address => {
+    // 模拟生成交易流向图数据
+    const nodes = [
+      {
+        name: `当前地址 (${address.substring(0, 6)}...)`,
+        address: address,
+        category: 'wallet',
+        riskLevel: 'medium',
+      },
+      {
+        name: '交易所A',
+        address: '0x1234567890abcdef1234567890abcdef12345678',
+        category: 'exchange',
+        riskLevel: 'low',
+      },
+      {
+        name: '智能合约B',
+        address: '0x2345678901abcdef2345678901abcdef23456789',
+        category: 'contract',
+        riskLevel: 'low',
+      },
+      {
+        name: '钱包C',
+        address: '0x3456789012abcdef3456789012abcdef34567890',
+        category: 'wallet',
+        riskLevel: 'medium',
+      },
+      {
+        name: '未知地址D',
+        address: '0x4567890123abcdef4567890123abcdef45678901',
+        category: 'unknown',
+        riskLevel: 'high',
+      },
+    ];
+
+    const links = [
+      { source: 0, target: 1, value: 100, txHash: '0x1234...abcd' },
+      { source: 0, target: 2, value: 50, txHash: '0x2345...bcde' },
+      { source: 2, target: 3, value: 30, txHash: '0x3456...cdef' },
+      { source: 3, target: 4, value: 20, txHash: '0x4567...defg' },
+      { source: 1, target: 4, value: 10, txHash: '0x5678...efgh' },
+    ];
+
+    setFlowChartData({ nodes, links });
+  };
+
+  // 生成相似地址
+  const generateSimilarAddresses = address => {
+    setSimilarAddressesLoading(true);
+
+    // 模拟API延迟
+    setTimeout(() => {
+      const similarAddrs = [
+        {
+          address: '0xbcdef1234567890abcdef1234567890abcdef123',
+          similarity: 85,
+          riskLevel: 'medium',
+          tags: ['defi', 'loan'],
+          lastActivity: Date.now() - 259200000,
+        },
+        {
+          address: '0xcdef1234567890abcdef1234567890abcdef1234',
+          similarity: 75,
+          riskLevel: 'high',
+          tags: ['mixer', 'suspicious'],
+          lastActivity: Date.now() - 604800000,
+        },
+        {
+          address: '0xdef1234567890abcdef1234567890abcdef12345',
+          similarity: 65,
+          riskLevel: 'low',
+          tags: ['exchange'],
+          lastActivity: Date.now() - 86400000,
+        },
+      ];
+
+      setSimilarAddresses(similarAddrs);
+      setSimilarAddressesLoading(false);
+    }, 1500);
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-8 bg-gray-50">
-      <div className="w-full max-w-7xl">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">地址画像</h1>
-          <p className="text-gray-600 mt-2">
-            构建地址行为画像，追踪历史活动模式
-          </p>
-        </header>
+    <div className="min-h-screen py-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <PageHeader
+          title="区块链地址分析"
+          subtitle="搜索、分析和监控区块链地址的活动和风险"
+          className="mb-6"
+        />
 
-        {/* 搜索框 */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <form
-            onSubmit={handleSearch}
-            className="flex flex-col md:flex-row gap-4"
+        <SearchBar placeholder="输入区块链地址..." label="区块链地址" onSearch={handleSearch} />
+
+        {initialLoading ? (
+          <AddressSkeleton />
+        ) : isLoading ? (
+          <div className="animate-pulse bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <p>{error}</p>
+          </div>
+        ) : addressProfile ? (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-6"
           >
-            <div className="flex-grow">
-              <label
-                htmlFor="search"
-                className="block mb-2 text-sm font-medium text-gray-700"
-              >
-                地址
-              </label>
-              <input
-                type="text"
-                id="search"
-                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-                placeholder="输入区块链地址..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="submit"
-                className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5"
-              >
-                搜索
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* 地址画像 */}
-        {addressProfile ? (
-          <>
-            {/* 地址概览 */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            {/* 地址概览卡片 */}
+            <motion.div variants={itemVariants} className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-800">
-                    地址概览
-                  </h2>
-                  <p className="text-gray-500 mt-1 font-mono">
-                    {addressProfile.address}
-                  </p>
+                  <h2 className="text-xl font-bold text-gray-800 mb-2">地址概览</h2>
+                  <AddressFormatter
+                    address={addressProfile.address}
+                    showLabel={true}
+                    label={addressProfile.label}
+                  />
                 </div>
-                <div className="mt-4 md:mt-0">
-                  <span
-                    className={`${getRiskBadgeClass(
-                      addressProfile.risk.level
-                    )} text-xs font-medium px-2.5 py-0.5 rounded-full`}
-                  >
-                    {getRiskLevelText(addressProfile.risk.level)}
-                  </span>
-                </div>
+                <RiskBadge riskLevel={addressProfile.riskLevel} score={addressProfile.riskScore} />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gray-50 rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
                   <h3 className="text-sm font-medium text-gray-500">余额</h3>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {addressProfile.profile.balance} ETH
+                  <p className="text-lg font-semibold">{addressProfile.balance} ETH</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">交易数量</h3>
+                  <p className="text-lg font-semibold">
+                    {addressProfile.transactionCount.toLocaleString()}
                   </p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500">
-                    交易次数
-                  </h3>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {addressProfile.profile.transactionCount}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500">
-                    首次交易
-                  </h3>
-                  <p className="text-lg font-medium text-gray-800 mt-1">
-                    {formatDate(addressProfile.profile.firstSeen)}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500">
-                    最近交易
-                  </h3>
-                  <p className="text-lg font-medium text-gray-800 mt-1">
-                    {formatDate(addressProfile.profile.lastSeen)}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">最近活动</h3>
+                  <p className="text-lg font-semibold">
+                    <DateFormatter timestamp={addressProfile.lastActivity} />
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6">
+              <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">标签</h3>
                 <div className="flex flex-wrap gap-2">
-                  {addressProfile.profile.tags.map((tag) => (
+                  {addressProfile.tags.map((tag, index) => (
                     <span
-                      key={tag}
-                      className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded"
+                      key={index}
+                      className="bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-0.5 rounded"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* 风险因素 */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                风险因素
-              </h2>
-              {addressProfile.risk.factors.length > 0 ? (
-                <ul className="space-y-3">
-                  {addressProfile.risk.factors.map((factor, index) => (
-                    <li key={index} className="flex items-start">
-                      <div className="flex-shrink-0">
-                        <svg
-                          className="w-5 h-5 text-blue-500"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                            clipRule="evenodd"
-                          ></path>
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-700">
-                          {factor.type}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {factor.description}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500">未检测到风险因素。</p>
-              )}
-            </div>
-
-            {/* 活动历史 */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                活动历史
-              </h2>
-              <div className="h-48">
-                <div className="flex items-end h-32 space-x-2">
-                  {addressProfile.activityHistory.map((day, index) => (
-                    <div key={index} className="flex flex-col items-center">
-                      <div
-                        className="bg-blue-500 w-8 rounded-t-sm"
-                        style={{ height: `${day.count * 10}px` }}
-                      ></div>
-                      <span className="text-xs mt-1 text-gray-500">
-                        {day.date.split("-")[2]}
-                      </span>
-                    </div>
-                  ))}
+            {/* 地址活动图表 */}
+            {addressActivityData.length > 0 && (
+              <motion.div variants={itemVariants} className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">地址活动分析</h2>
+                <div className="h-80">
+                  <AddressAnalysisChart data={addressActivityData} />
                 </div>
-                <div className="flex justify-between mt-4">
-                  <span className="text-xs text-gray-500">
-                    {addressProfile.activityHistory[0].date}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {
-                      addressProfile.activityHistory[
-                        addressProfile.activityHistory.length - 1
-                      ].date
-                    }
-                  </span>
+              </motion.div>
+            )}
+
+            {/* 交易流向图 */}
+            {flowChartData.nodes.length > 0 && (
+              <motion.div variants={itemVariants} className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">交易流向分析</h2>
+                <div className="h-80">
+                  <TransactionFlowChart nodes={flowChartData.nodes} links={flowChartData.links} />
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            )}
 
-            {/* 相关地址 */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                相关地址
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-gray-500">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3">
-                        地址
-                      </th>
-                      <th scope="col" className="px-6 py-3">
-                        交易次数
-                      </th>
-                      <th scope="col" className="px-6 py-3">
-                        最近交互
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {addressProfile.relatedAddresses.map((related) => (
-                      <tr
-                        key={related.address}
-                        className="bg-white border-b hover:bg-gray-50"
-                      >
-                        <td className="px-6 py-4 font-mono">
-                          {formatAddress(related.address)}
-                        </td>
-                        <td className="px-6 py-4">
-                          {related.transactionCount}
-                        </td>
-                        <td className="px-6 py-4">
-                          {formatDate(related.lastInteraction)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* 最近交易 */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                最近交易
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-gray-500">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3">
-                        交易哈希
-                      </th>
-                      <th scope="col" className="px-6 py-3">
-                        类型
-                      </th>
-                      <th scope="col" className="px-6 py-3">
-                        对方地址
-                      </th>
-                      <th scope="col" className="px-6 py-3">
-                        金额
-                      </th>
-                      <th scope="col" className="px-6 py-3">
-                        时间
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {addressProfile.transactions.map((tx) => (
-                      <tr
-                        key={tx.hash}
-                        className="bg-white border-b hover:bg-gray-50"
-                      >
-                        <td className="px-6 py-4 font-mono text-xs">{`${tx.hash.substring(
-                          0,
-                          6
-                        )}...${tx.hash.substring(tx.hash.length - 4)}`}</td>
-                        <td className="px-6 py-4">
-                          {tx.type === "in" ? (
-                            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                              转入
-                            </span>
-                          ) : (
-                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                              转出
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 font-mono text-xs">
-                          {tx.type === "in"
-                            ? formatAddress(tx.from)
-                            : formatAddress(tx.to)}
-                        </td>
-                        <td className="px-6 py-4">{tx.value} ETH</td>
-                        <td className="px-6 py-4">
-                          {formatDate(tx.timestamp)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
+            {/* 相似地址 */}
+            <motion.div variants={itemVariants} className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">相似地址</h2>
+              <SimilarAddresses
+                addresses={similarAddresses}
+                isLoading={isSimilarAddressesLoading}
+              />
+            </motion.div>
+          </motion.div>
         ) : (
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="w-16 h-16 text-gray-400 mx-auto mb-4"
               fill="none"
-              viewBox="0 0 24 24"
               stroke="currentColor"
-              aria-hidden="true"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              未找到地址
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              请输入有效的区块链地址进行搜索。
-            </p>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">搜索区块链地址</h3>
+            <p className="text-gray-500">输入区块链地址以查看详细分析和风险评估</p>
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

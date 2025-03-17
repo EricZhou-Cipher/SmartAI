@@ -22,28 +22,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: "yarn"
 
       - name: 📋 显示环境信息
         run: |
           echo "Node.js 版本: $(node -v)"
-          echo "npm 版本: $(npm -v)"
+          echo "Yarn 版本: $(yarn --version)"
           echo "操作系统: $(uname -a)"
 
       - name: 📥 安装后端依赖
         working-directory: ./backend
-        run: HUSKY=0 npm install --no-fund --network-timeout=300000
+        run: HUSKY=0 yarn install --network-timeout=300000
         env:
           HUSKY: 0
 
       - name: 📥 安装前端依赖
         working-directory: ./frontend
-        run: HUSKY=0 npm install --no-fund
+        run: HUSKY=0 yarn install
         env:
           HUSKY: 0
 
       - name: 🧪 运行后端测试
         working-directory: ./backend
-        run: npm test || echo "后端测试暂时跳过"
+        run: yarn test || echo "后端测试暂时跳过"
         env:
           NODE_ENV: test
           JWT_SECRET: test_secret
@@ -51,14 +52,14 @@ jobs:
 
       - name: 🧪 运行前端测试
         working-directory: ./frontend
-        run: npm test || echo "前端测试暂时跳过"
+        run: yarn test || echo "前端测试暂时跳过"
 
       - name: 📊 生成测试报告
         run: |
           echo "=== 自动测试报告 ===" > test-report.txt
           echo "运行时间: $(date)" >> test-report.txt
           echo "Node.js 版本: $(node -v)" >> test-report.txt
-          echo "npm 版本: $(npm -v)" >> test-report.txt
+          echo "Yarn 版本: $(yarn --version)" >> test-report.txt
           echo "✅ 测试完成" >> test-report.txt
 
       - name: 📤 上传测试报告

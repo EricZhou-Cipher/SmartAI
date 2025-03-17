@@ -41,8 +41,8 @@ jobs:
         run: |
           echo "Node.js版本:"
           node -v
-          echo "NPM版本:"
-          npm -v
+          echo "Yarn版本:"
+          yarn -v
           echo "检查yarn是否存在:"
           which yarn || echo "yarn不存在"
 
