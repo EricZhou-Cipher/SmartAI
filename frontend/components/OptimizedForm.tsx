@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { debounce } from '../utils/performance';
+import A11yFormInput from './a11y/A11yFormInput';
 
 // 表单字段类型
 export type FieldType = 'text' | 'email' | 'password' | 'number' | 'select' | 'textarea';
@@ -190,19 +191,19 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
   const FormInput = React.memo(({ field }: { field: FormField }) => {
     const error = touched[field.id] && errors[field.id];
     
-    return (
-      <div className="mb-4">
-        <label 
-          htmlFor={field.id} 
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          {field.label}
-          {field.required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-        
-        {field.type === 'select' ? (
+    if (field.type === 'select') {
+      return (
+        <div className="mb-4">
+          <label 
+            htmlFor={`form-field-${field.id}`} 
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            {field.label}
+            {field.required && <span className="text-red-500 ml-1" aria-hidden="true">*</span>}
+            {field.required && <span className="sr-only">（必填）</span>}
+          </label>
           <select
-            id={field.id}
+            id={`form-field-${field.id}`}
             name={field.id}
             value={values[field.id]}
             onChange={handleChange}
@@ -210,6 +211,9 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
             className={`w-full p-2 border rounded-md ${
               error ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            aria-required={field.required}
+            aria-invalid={!!error}
+            aria-describedby={error ? `${field.id}-error` : undefined}
           >
             <option value="">请选择</option>
             {field.options?.map(option => (
@@ -218,9 +222,26 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
               </option>
             ))}
           </select>
-        ) : field.type === 'textarea' ? (
+          {error && (
+            <p id={`${field.id}-error`} className="mt-1 text-sm text-red-500" role="alert">{error}</p>
+          )}
+        </div>
+      );
+    }
+    
+    if (field.type === 'textarea') {
+      return (
+        <div className="mb-4">
+          <label 
+            htmlFor={`form-field-${field.id}`} 
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            {field.label}
+            {field.required && <span className="text-red-500 ml-1" aria-hidden="true">*</span>}
+            {field.required && <span className="sr-only">（必填）</span>}
+          </label>
           <textarea
-            id={field.id}
+            id={`form-field-${field.id}`}
             name={field.id}
             value={values[field.id]}
             onChange={handleChange as any}
@@ -230,25 +251,34 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
               error ? 'border-red-500' : 'border-gray-300'
             } focus:outline-none focus:ring-2 focus:ring-blue-500`}
             rows={4}
+            aria-required={field.required}
+            aria-invalid={!!error}
+            aria-describedby={error ? `${field.id}-error` : undefined}
           />
-        ) : (
-          <input
-            id={field.id}
-            name={field.id}
-            type={field.type}
-            value={values[field.id]}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            placeholder={field.placeholder}
-            className={`w-full p-2 border rounded-md ${
-              error ? 'border-red-500' : 'border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          />
-        )}
-        
-        {error && (
-          <p className="mt-1 text-sm text-red-500">{error}</p>
-        )}
+          {error && (
+            <p id={`${field.id}-error`} className="mt-1 text-sm text-red-500" role="alert">{error}</p>
+          )}
+        </div>
+      );
+    }
+    
+    // 标准输入框使用A11yFormInput组件
+    return (
+      <div className="mb-4">
+        <A11yFormInput
+          id={`form-field-${field.id}`}
+          name={field.id}
+          type={field.type}
+          label={field.label}
+          value={values[field.id]}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder={field.placeholder}
+          error={error || undefined}
+          required={field.required}
+          className="w-full"
+          aria-describedby={error ? `${field.id}-error` : undefined}
+        />
       </div>
     );
   });
@@ -257,7 +287,18 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
   FormInput.displayName = 'FormInput';
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form 
+      onSubmit={handleSubmit} 
+      className="space-y-4" 
+      noValidate 
+      aria-live="polite"
+    >
+      {hasErrors && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded" role="alert">
+          <p>表单包含错误，请检查并修正后再提交。</p>
+        </div>
+      )}
+      
       {fields.map(field => (
         <FormInput key={field.id} field={field} />
       ))}
@@ -271,6 +312,8 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
               ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-blue-500 hover:bg-blue-600'
           } transition-colors`}
+          aria-busy={isSubmitting}
+          aria-disabled={hasErrors}
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center">
@@ -279,6 +322,8 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
+                role="img"
+                aria-label="加载中"
               >
                 <circle
                   className="opacity-25"
@@ -294,7 +339,8 @@ const OptimizedForm: React.FC<OptimizedFormProps> = ({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              处理中...
+              <span aria-hidden="true">处理中...</span>
+              <span className="sr-only">表单提交中，请稍候</span>
             </span>
           ) : (
             submitButtonText

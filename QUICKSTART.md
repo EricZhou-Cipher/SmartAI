@@ -1,204 +1,155 @@
-# ChainIntelAI 快速启动指南
+# SmartAI 快速启动指南
 
-本文档提供了快速设置和运行 ChainIntelAI 项目的步骤。
+本文档提供了快速搭建和运行 SmartAI 项目的步骤，适合开发者和非技术用户使用。
 
-## 目录
+## 一键安装设置（推荐）
 
-- [前提条件](#前提条件)
-- [快速启动](#快速启动)
-- [手动设置](#手动设置)
-- [项目结构](#项目结构)
-- [常见问题](#常见问题)
+为了简化安装流程，我们提供了一键安装脚本，可以自动检查环境、安装依赖、配置设置并启动服务。
 
-## 前提条件
+### Linux/macOS 用户
 
-在开始之前，请确保您的系统满足以下要求：
-
-- **Node.js**: v18.0.0 或更高版本
-- **Yarn**: 最新版本
-- **Git**: 最新版本
-- **MongoDB**: 用于后端数据存储（如果运行后端）
-
-## 快速启动
-
-我们提供了一个快速启动脚本，可以自动完成大部分设置步骤：
+1. 打开终端
+2. 切换到项目根目录
+3. 运行以下命令：
 
 ```bash
-# 克隆仓库（如果尚未克隆）
-git clone https://github.com/EricZhou-Cipher/ChainIntelAI.git
-cd ChainIntelAI
+# 添加执行权限
+chmod +x setup.sh
 
-# 运行快速启动脚本
-./scripts/setup.sh
+# 运行脚本
+./setup.sh
 ```
 
-这个脚本将：
+### Windows 用户
 
-1. 检查必要的依赖
-2. 安装项目依赖
-3. 设置环境变量
-4. 运行基本测试
-5. 提供帮助信息
-6. 可选择启动开发服务器
+1. 打开命令提示符或 PowerShell
+2. 切换到项目根目录
+3. 直接双击`setup.bat`文件，或在命令行中运行：
 
-## 手动设置
+```
+setup.bat
+```
 
-如果您更喜欢手动设置，或者快速启动脚本出现问题，请按照以下步骤操作：
+### 脚本功能说明
 
-### 1. 安装依赖
+安装脚本会自动执行以下操作：
+
+- ✅ 检查系统依赖（Node.js、Yarn、Git 等）
+- ✅ 创建必要的环境配置文件
+- ✅ 安装项目依赖
+- ✅ 提供启动选项
+- ✅ 创建服务启动和停止脚本
+
+## 手动安装（高级用户）
+
+如果您希望手动控制安装过程，可以按照以下步骤操作：
+
+### 前提条件
+
+确保您的系统已安装以下软件：
+
+- Node.js（v16 或更高版本）
+- Yarn
+- Git
+- 可选：Docker 和 Docker Compose
+
+### 步骤 1：克隆仓库（如果尚未克隆）
 
 ```bash
+git clone https://github.com/yourusername/SmartAI.git
+cd SmartAI
+```
+
+### 步骤 2：设置环境变量
+
+```bash
+cp .env.example .env
+# 使用文本编辑器编辑.env文件，填入必要的API密钥和配置
+```
+
+### 步骤 3：安装依赖
+
+```bash
+# 安装根目录依赖
+yarn install
+
 # 安装前端依赖
 cd frontend
 yarn install
+cd ..
 
-# 安装后端依赖（如果需要）
-cd ../backend
+# 安装后端依赖
+cd backend
 yarn install
+cd ..
 ```
 
-### 2. 设置环境变量
+### 步骤 4：启动服务
 
 ```bash
-# 前端环境变量
-cd frontend
-cp .env.example .env
-# 编辑 .env 文件设置必要的环境变量
-
-# 后端环境变量（如果需要）
-cd ../backend
-cp .env.example .env
-# 编辑 .env 文件设置必要的环境变量
-```
-
-### 3. 启动开发服务器
-
-```bash
-# 启动前端开发服务器
+# 方法1：分别启动前端和后端（推荐开发环境）
+# 终端1
 cd frontend
 yarn dev
 
-# 启动后端开发服务器（如果需要）
-cd ../backend
+# 终端2
+cd backend
 yarn dev
+
+# 方法2：使用Docker启动所有服务（需要安装Docker）
+docker-compose up -d
 ```
 
-## 项目结构
+## 验证安装
 
-```
-ChainIntelAI/
-├── frontend/              # 前端应用
-│   ├── app/               # Next.js 应用程序路由和页面
-│   ├── components/        # React 组件
-│   ├── __tests__/         # 测试文件
-│   ├── scripts/           # 实用脚本
-│   │   ├── create-test.sh # 创建测试文件的脚本
-│   │   └── run-tests.sh   # 运行测试的脚本
-│   └── TESTING.md         # 前端测试文档
-├── backend/               # 后端服务器（如果有）
-├── scripts/               # 项目级脚本
-│   └── setup.sh           # 快速启动脚本
-├── README.md              # 项目概述
-└── QUICKSTART.md          # 本文档
-```
+安装完成后，您可以通过以下 URL 访问应用程序：
 
-## 测试
+- 前端界面：http://localhost:3000
+- API 端点：http://localhost:3000/api
 
-我们为项目提供了完整的测试框架和工具：
+## 常见问题排查
 
-### 创建组件测试
+如果遇到问题，请尝试以下解决方案：
+
+### 1. 安装依赖失败
 
 ```bash
-# 进入前端目录
-cd frontend
-
-# 为组件创建测试文件
-./scripts/create-test.sh -c 组件名
-# 或使用 yarn 脚本
-yarn create-test -c 组件名
-```
-
-### 运行测试
-
-```bash
-# 进入前端目录
-cd frontend
-
-# 运行所有测试
-./scripts/run-tests.sh -a
-# 或使用 yarn 脚本
-yarn run-tests -a
-
-# 运行特定组件的测试
-./scripts/run-tests.sh -c 组件名
-# 或使用 yarn 脚本
-yarn run-tests -c 组件名
-
-# 以监视模式运行测试
-./scripts/run-tests.sh -c 组件名 -w
-# 或使用 yarn 脚本
-yarn run-tests -c 组件名 -w
-```
-
-## 常见问题
-
-### 1. 安装依赖时出错
-
-如果在安装依赖时遇到问题，请尝试以下解决方案：
-
-```bash
-# 清除 yarn 缓存
+# 清除yarn缓存
 yarn cache clean
 
-# 删除 node_modules 目录
-rm -rf node_modules
-
-# 重新安装依赖
+# 重新安装
 yarn install
 ```
 
-### 2. 找不到环境变量
+### 2. 服务启动失败
 
-确保您已经正确设置了环境变量文件：
-
-```bash
-# 检查前端环境变量文件是否存在
-ls -la frontend/.env
-
-# 如果不存在，从示例文件创建
-cp frontend/.env.example frontend/.env
-```
-
-### 3. 测试失败
-
-如果测试失败，请检查：
-
-1. 组件实现是否正确
-2. 测试代码是否正确
-3. 是否有异步操作需要等待
-
-您可以使用以下命令查看详细的测试输出：
+检查端口占用情况：
 
 ```bash
-cd frontend
-yarn test --verbose
+# Linux/macOS
+lsof -i :3000
+
+# Windows
+netstat -ano | findstr :3000
 ```
 
-### 4. 开发服务器无法启动
+### 3. 无法连接到数据库
 
-如果开发服务器无法启动，请检查：
-
-1. 端口是否被占用（默认为 3000）
-2. 环境变量是否正确设置
-3. 依赖是否正确安装
-
-您可以尝试在不同的端口上启动服务器：
+确保 MongoDB 和 Redis 服务正在运行：
 
 ```bash
-cd frontend
-PORT=3001 yarn dev
+# 检查MongoDB状态
+mongod --version
+
+# 检查Redis状态
+redis-cli ping
 ```
 
----
+## 更多资源
 
-如有任何问题，请联系项目负责人或提交 Issue。
+- [项目架构](docs/ARCHITECTURE.md)
+- [API 文档](docs/api.md)
+- [配置指南](docs/configuration.md)
+- [CI/CD 文档](docs/CI_CD.md)
+
+如有其他问题，请在 GitHub Issues 页面提问或联系项目维护者。

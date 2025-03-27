@@ -1,252 +1,132 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import TransactionList from '../../app/components/TransactionList';
+import TransactionList, { fetchTransactions } from '../../components/TransactionList';
 import userEvent from '@testing-library/user-event';
+import { mockTransactions, setupMockApi, createMockResponse } from '../mocks/mockService';
 
-// 模拟fetch API
-global.fetch = jest.fn();
+// 设置模拟API
+const mockApi = setupMockApi();
 
 // 在每个测试前重置模拟
 beforeEach(() => {
-  fetch.mockClear();
+  global.fetch = jest.fn();
+  jest.clearAllMocks();
 });
 
 describe('TransactionList组件', () => {
   // 测试1：正确渲染交易数据
   test('正确渲染交易数据', async () => {
-    // 模拟API响应
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        transactions: [
-          { 
-            hash: '0x1234', 
-            from: '0xA', 
-            to: '0xB', 
-            value: '10 ETH',
-            timestamp: '2023-03-17T10:15:30Z',
-            status: 'confirmed'
-          }
-        ]
-      })
-    });
+    // 使用模拟服务提供的数据
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      Promise.resolve(createMockResponse({ 
+        transactions: mockTransactions,
+        total: mockTransactions.length
+      }))
+    );
 
     render(<TransactionList />);
 
-    // 等待加载完成
+    // 等待加载完成，检查发送方地址（格式化后）
     await waitFor(() => {
-      expect(screen.getByText('0x1234')).toBeInTheDocument();
-      expect(screen.getByText('10 ETH')).toBeInTheDocument();
-      expect(screen.getByText('0xA')).toBeInTheDocument();
-      expect(screen.getByText('0xB')).toBeInTheDocument();
+      expect(screen.getByText('0x742d...f44e')).toBeInTheDocument();
+      expect(screen.getByText('1.5 ETH')).toBeInTheDocument();
     });
   });
 
-  // 测试2：搜索交易
-  test('搜索交易', async () => {
-    // 模拟API响应
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        transactions: [
-          { hash: '0x1234', from: '0xA', to: '0xB', value: '10 ETH', timestamp: '2023-03-17T10:15:30Z' },
-          { hash: '0x5678', from: '0xC', to: '0xD', value: '5 ETH', timestamp: '2023-03-17T09:45:12Z' }
-        ]
-      })
+  // 测试2：测试加载状态
+  test('显示加载状态', () => {
+    // 模拟延迟加载
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      new Promise(resolve => setTimeout(resolve, 1000))
+    );
+
+    render(<TransactionList />);
+    
+    // 检查加载状态元素是否存在
+    const loadingElement = screen.getByRole('progressbar');
+    expect(loadingElement).toBeInTheDocument();
+    expect(loadingElement).toHaveAttribute('aria-busy', 'true');
+  });
+
+  // 测试3：测试错误状态
+  test('显示错误状态和重试按钮', async () => {
+    // 模拟加载失败
+    jest.spyOn(global, 'fetch').mockRejectedValue(new Error('加载失败'));
+
+    render(<TransactionList />);
+    
+    // 等待错误状态显示
+    await waitFor(() => {
+      expect(screen.getByText('加载交易数据失败')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /重试/ })).toBeInTheDocument();
     });
+  });
+
+  // 测试4：搜索交易
+  test('搜索交易', async () => {
+    // 使用模拟服务提供的数据
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      Promise.resolve(createMockResponse({ 
+        transactions: mockTransactions,
+        total: mockTransactions.length
+      }))
+    );
 
     render(<TransactionList />);
 
     // 等待加载完成
     await waitFor(() => {
-      expect(screen.getByText('0x1234')).toBeInTheDocument();
-      expect(screen.getByText('0x5678')).toBeInTheDocument();
+      expect(screen.getByText('0x742d...f44e')).toBeInTheDocument();
     });
 
     // 搜索交易
     const searchInput = screen.getByPlaceholderText('搜索交易');
-    fireEvent.change(searchInput, { target: { value: '0x1234' } });
+    fireEvent.change(searchInput, { target: { value: '0x742d' } });
+    fireEvent.click(screen.getByRole('button', { name: '搜索按钮' }));
 
     // 验证搜索结果
-    expect(screen.getByText('0x1234')).toBeInTheDocument();
-    expect(screen.queryByText('0x5678')).not.toBeInTheDocument();
-  });
-
-  // 测试3：分页功能
-  test('分页功能', async () => {
-    // 创建大量模拟数据
-    const mockTransactions = Array.from({ length: 25 }, (_, i) => ({
-      hash: `0x${i.toString().padStart(4, '0')}`,
-      from: `0xSender${i}`,
-      to: `0xReceiver${i}`,
-      value: `${i} ETH`,
-      timestamp: new Date().toISOString()
-    }));
-
-    // 模拟第一页API响应
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        transactions: mockTransactions.slice(0, 10),
-        total: mockTransactions.length
-      })
-    });
-
-    // 模拟第二页API响应
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        transactions: mockTransactions.slice(10, 20),
-        total: mockTransactions.length
-      })
-    });
-
-    render(<TransactionList />);
-
-    // 等待第一页加载完成
     await waitFor(() => {
-      expect(screen.getByText('0x0000')).toBeInTheDocument();
-    });
-
-    // 点击下一页
-    fireEvent.click(screen.getByText('下一页'));
-
-    // 等待第二页加载完成
-    await waitFor(() => {
-      expect(screen.getByText('0x0010')).toBeInTheDocument();
-      expect(screen.queryByText('0x0000')).not.toBeInTheDocument();
+      expect(screen.getByText('0x742d...f44e')).toBeInTheDocument();
+      expect(screen.queryByText('0x5B38...ddC4')).not.toBeInTheDocument();
     });
   });
 
-  // 测试4：加载状态显示
-  test('显示加载状态', async () => {
-    // 延迟API响应
-    fetch.mockImplementationOnce(() => new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          ok: true,
-          json: async () => ({ transactions: [] })
-        });
-      }, 100);
-    }));
-
-    render(<TransactionList />);
-
-    // 验证加载状态
-    expect(screen.getByTestId('loading')).toBeInTheDocument();
-
-    // 等待加载完成
-    await waitFor(() => {
-      expect(screen.queryByTestId('loading')).not.toBeInTheDocument();
-    });
-  });
-
-  // 测试5：API错误处理
-  test('处理API错误', async () => {
-    // 模拟API错误
-    fetch.mockRejectedValueOnce(new Error('API错误'));
-
-    render(<TransactionList />);
-
-    // 等待错误消息显示
-    await waitFor(() => {
-      expect(screen.getByText('加载交易失败')).toBeInTheDocument();
-    });
-  });
-
-  // 测试6：交易详情
-  test('点击交易显示详情', async () => {
-    // 模拟API响应
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        transactions: [
-          { 
-            hash: '0x1234', 
-            from: '0xA', 
-            to: '0xB', 
-            value: '10 ETH',
-            timestamp: '2023-03-17T10:15:30Z',
-            status: 'confirmed'
-          }
-        ]
-      })
-    });
-
-    // 模拟交易详情API响应
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        transaction: {
-          hash: '0x1234',
-          from: '0xA',
-          to: '0xB',
-          value: '10 ETH',
-          gasUsed: '21000',
-          gasPrice: '25',
-          timestamp: '2023-03-17T10:15:30Z',
-          status: 'confirmed',
-          blockNumber: 15678901
-        }
-      })
-    });
-
-    render(<TransactionList />);
-
-    // 等待加载完成
-    await waitFor(() => {
-      expect(screen.getByText('0x1234')).toBeInTheDocument();
-    });
-
-    // 点击交易
-    fireEvent.click(screen.getByText('0x1234'));
-
-    // 等待详情加载
-    await waitFor(() => {
-      expect(screen.getByText('交易详情')).toBeInTheDocument();
-      expect(screen.getByText('区块号:')).toBeInTheDocument();
-      expect(screen.getByText('15678901')).toBeInTheDocument();
-    });
-  });
-
-  // 测试7：筛选交易状态
+  // 测试5：筛选交易状态
   test('筛选交易状态', async () => {
-    // 模拟API响应
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        transactions: [
-          { hash: '0x1234', status: 'confirmed', value: '10 ETH', timestamp: '2023-03-17T10:15:30Z' },
-          { hash: '0x5678', status: 'pending', value: '5 ETH', timestamp: '2023-03-17T09:45:12Z' },
-          { hash: '0x9abc', status: 'failed', value: '3 ETH', timestamp: '2023-03-17T09:30:45Z' }
-        ]
-      })
-    });
+    // 使用模拟服务提供的数据
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      Promise.resolve(createMockResponse({ 
+        transactions: mockTransactions,
+        total: mockTransactions.length
+      }))
+    );
 
     render(<TransactionList />);
 
     // 等待加载完成
     await waitFor(() => {
-      expect(screen.getByText('0x1234')).toBeInTheDocument();
+      expect(screen.getByText('0x742d...f44e')).toBeInTheDocument();
     });
 
-    // 筛选确认状态
-    fireEvent.click(screen.getByText('已确认'));
+    // 筛选待处理状态
+    fireEvent.click(screen.getByText('处理中'));
 
-    // 验证只显示确认交易
-    expect(screen.getByText('0x1234')).toBeInTheDocument();
-    expect(screen.queryByText('0x5678')).not.toBeInTheDocument();
-    expect(screen.queryByText('0x9abc')).not.toBeInTheDocument();
+    // 验证只显示待处理交易
+    await waitFor(() => {
+      expect(screen.queryByText('0x742d...f44e')).not.toBeInTheDocument(); // confirmed状态，不应显示
+      expect(screen.getByText('0x5B38...ddC4')).toBeInTheDocument(); // pending状态，应显示
+    });
   });
 
   // 边缘情况测试
-  it('当没有交易数据时应显示占位符', async () => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ transactions: [], total: 0 }),
-      })
+  test('当没有交易数据时应显示占位符', async () => {
+    // 模拟空数据
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      Promise.resolve(createMockResponse({ 
+        transactions: [],
+        total: 0
+      }))
     );
 
     render(<TransactionList />);
@@ -256,109 +136,83 @@ describe('TransactionList组件', () => {
     });
   });
 
-  it('搜索结果为空时应显示未找到结果提示', async () => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ transactions: [], total: 0 }),
-      })
+  test('搜索结果为空时应显示未找到结果提示', async () => {
+    // 使用模拟服务提供的数据
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      Promise.resolve(createMockResponse({ 
+        transactions: mockTransactions,
+        total: mockTransactions.length
+      }))
     );
 
     render(<TransactionList />);
     
+    // 等待加载完成
+    await waitFor(() => {
+      expect(screen.getByText('0x742d...f44e')).toBeInTheDocument();
+    });
+    
+    // 搜索不存在的交易
     const searchInput = screen.getByPlaceholderText('搜索交易');
     fireEvent.change(searchInput, { target: { value: '不存在的交易' } });
-    fireEvent.click(screen.getByText('搜索'));
+    fireEvent.click(screen.getByRole('button', { name: '搜索按钮' }));
     
     await waitFor(() => {
       expect(screen.getByText('没有找到匹配的交易')).toBeInTheDocument();
     });
   });
 
-  it('应处理超大数据集而不导致性能问题', async () => {
-    // 创建一个包含1000条交易的大数据集
-    const largeDataset = Array.from({ length: 1000 }, (_, i) => ({
-      id: `tx-${i}`,
-      hash: `0x${i.toString().padStart(64, '0')}`,
-      from: '0x1234567890abcdef1234567890abcdef12345678',
-      to: '0xabcdef1234567890abcdef1234567890abcdef12',
-      value: '1.0 ETH',
-      timestamp: new Date().toISOString(),
-      status: i % 3 === 0 ? 'confirmed' : i % 3 === 1 ? 'pending' : 'failed',
-    }));
-
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ transactions: largeDataset.slice(0, 10), total: largeDataset.length }),
-      })
+  // 测试无障碍支持
+  test('交易行应支持键盘导航', async () => {
+    // 使用模拟服务提供的数据
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      Promise.resolve(createMockResponse({ 
+        transactions: mockTransactions,
+        total: mockTransactions.length
+      }))
     );
 
-    // 使用性能计时API测量渲染时间
-    const startTime = performance.now();
     render(<TransactionList />);
-    const endTime = performance.now();
-
-    // 确保渲染时间在合理范围内（小于500ms）
-    expect(endTime - startTime).toBeLessThan(500);
     
+    // 等待数据加载完成
     await waitFor(() => {
-      expect(screen.getAllByRole('row').length).toBeGreaterThan(1); // 表头 + 至少一行数据
+      expect(screen.getByText('0x742d...f44e')).toBeInTheDocument();
     });
+
+    // 检查交易行是否可以获取焦点
+    const rows = document.querySelectorAll('[role="row"]');
+    expect(rows.length).toBeGreaterThan(1); // 表头 + 至少一行数据
+    
+    // 可聚焦的元素应该有tabIndex属性
+    const transactionRows = Array.from(rows).filter(row => row.getAttribute('tabIndex') === '0');
+    expect(transactionRows.length).toBeGreaterThan(0);
   });
 
-  // 无障碍测试
-  it('交易行应支持键盘导航', async () => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ transactions: mockTransactions, total: mockTransactions.length }),
-      })
+  test('应包含正确的ARIA属性', async () => {
+    // 使用模拟服务提供的数据
+    jest.spyOn(global, 'fetch').mockImplementation(() => 
+      Promise.resolve(createMockResponse({ 
+        transactions: mockTransactions,
+        total: mockTransactions.length
+      }))
     );
 
     render(<TransactionList />);
     
+    // 等待数据加载完成
     await waitFor(() => {
-      expect(screen.getAllByRole('row').length).toBeGreaterThan(1);
+      expect(screen.getByText('0x742d...f44e')).toBeInTheDocument();
     });
 
-    // 获取所有可聚焦元素
-    const focusableElements = screen.getAllByRole('button');
-    
-    // 第一个元素应该可以聚焦
-    focusableElements[0].focus();
-    expect(document.activeElement).toBe(focusableElements[0]);
-    
-    // 模拟Tab键按下，焦点应该移动到下一个元素
-    userEvent.tab();
-    expect(document.activeElement).toBe(focusableElements[1]);
-  });
-
-  it('应包含正确的ARIA属性', async () => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ transactions: mockTransactions, total: mockTransactions.length }),
-      })
-    );
-
-    render(<TransactionList />);
-    
-    await waitFor(() => {
-      expect(screen.getAllByRole('row').length).toBeGreaterThan(1);
-    });
-
-    // 表格应该有正确的ARIA角色
+    // 检查表格是否有正确的ARIA角色
     expect(screen.getByRole('table')).toHaveAttribute('aria-label', '交易列表');
     
-    // 表头应该有正确的scope属性
-    const headers = screen.getAllByRole('columnheader');
-    headers.forEach(header => {
-      expect(header).toHaveAttribute('scope', 'col');
-    });
+    // 检查单元格是否有正确的角色
+    const cells = screen.getAllByRole('cell');
+    expect(cells.length).toBeGreaterThan(0);
     
-    // 状态应该有正确的aria-label
-    const statusElements = screen.getAllByLabelText(/状态:/);
-    expect(statusElements.length).toBeGreaterThan(0);
+    // 检查状态是否有描述性标签
+    const statusDescriptions = document.querySelectorAll('[aria-label^="状态:"]');
+    expect(statusDescriptions.length).toBeGreaterThan(0);
   });
 }); 

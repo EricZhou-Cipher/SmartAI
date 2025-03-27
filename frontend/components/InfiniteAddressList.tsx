@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useInfiniteScroll } from '../hooks/useIntersectionObserver';
 import RiskBadge, { RiskLevel } from './RiskBadge';
@@ -73,13 +73,37 @@ const InfiniteAddressList: React.FC = () => {
     }, 800);
   }, [loading, hasMore, page, limit]);
   
+  // 使用div元素获取ref
+  const loadingRef = useRef<HTMLDivElement>(null);
+
+  // 添加自定义观察器实现无限滚动
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && !loading && hasMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    const currentLoadingRef = loadingRef.current;
+    if (currentLoadingRef) {
+      observer.observe(currentLoadingRef);
+    }
+
+    return () => {
+      if (currentLoadingRef) {
+        observer.unobserve(currentLoadingRef);
+      }
+    };
+  }, [loadMore, loading, hasMore]);
+  
   // 初始加载
   React.useEffect(() => {
     loadMore();
-  }, []);
-  
-  // 使用自定义Hook实现无限滚动
-  const loaderRef = useInfiniteScroll(loadMore);
+  }, [loadMore]);
   
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -121,7 +145,7 @@ const InfiniteAddressList: React.FC = () => {
       {/* 加载更多指示器 */}
       {hasMore && (
         <div 
-          ref={loaderRef} 
+          ref={loadingRef} 
           className="py-4 text-center text-gray-500"
         >
           {loading ? (

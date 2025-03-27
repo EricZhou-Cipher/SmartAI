@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useLazyImage } from '../hooks/useIntersectionObserver';
 
@@ -13,7 +13,7 @@ interface LazyImageProps {
 
 /**
  * 懒加载图片组件
- * 只有当图片进入视口时才会加载
+ * 当图片进入视口时才加载图片
  */
 const LazyImage: React.FC<LazyImageProps> = ({
   src,
@@ -23,9 +23,38 @@ const LazyImage: React.FC<LazyImageProps> = ({
   className = '',
   placeholderColor = '#f3f4f6'
 }) => {
-  // 使用自定义Hook实现懒加载
-  const [ref, imageSrc, isLoaded] = useLazyImage(src);
-
+  // 使用自定义的ref和状态管理
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [imageSrc, setImageSrc] = useState('');
+  
+  // 创建自己的Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          const img = new Image();
+          img.src = src;
+          img.onload = () => {
+            setImageSrc(src);
+            setIsLoaded(true);
+          };
+          // 一旦加载，停止观察
+          if (imgRef.current) observer.unobserve(imgRef.current);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    
+    if (imgRef.current) {
+      observer.observe(imgRef.current);
+    }
+    
+    return () => {
+      if (imgRef.current) observer.unobserve(imgRef.current);
+    };
+  }, [src]);
+  
   return (
     <div 
       className={`relative overflow-hidden ${className}`}
@@ -40,7 +69,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
       
       {/* 图片 */}
       <motion.img
-        ref={ref}
+        ref={imgRef}
         src={imageSrc || ''}
         alt={alt}
         width={width}

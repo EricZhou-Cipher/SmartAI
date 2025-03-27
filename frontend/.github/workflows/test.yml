@@ -1,0 +1,396 @@
+name: 前端测试流程
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: '启用调试模式'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # 代码检查任务
+  lint:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ./frontend/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install
+
+      - name: 运行ESLint
+        run: yarn lint
+
+      - name: 运行类型检查
+        run: yarn type-check
+
+  # 单元测试任务
+  unit-tests:
+    name: 单元测试
+    needs: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ./frontend/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install
+
+      - name: 运行Jest测试
+        run: yarn test --coverage
+
+      - name: 上传测试覆盖率报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: ./frontend/coverage
+
+      - name: 检查测试覆盖率阈值
+        run: |
+          COVERAGE=$(grep -A 4 "All files" coverage/coverage-summary.json | grep statements | awk -F: '{print $2}' | awk -F, '{print $1}')
+          COVERAGE=${COVERAGE//[[:blank:]]/}
+          echo "覆盖率: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "测试覆盖率低于80%：$COVERAGE%"
+            exit 1
+          fi
+
+  # 组件测试任务
+  component-tests:
+    name: 组件测试
+    needs: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ./frontend/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install
+
+      - name: 运行组件测试
+        run: yarn test:component
+
+      - name: 运行组件Cypress测试
+        run: yarn cypress:component:headless
+
+  # 端到端测试任务
+  e2e-tests:
+    name: 端到端测试
+    needs: [unit-tests, component-tests]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ./frontend/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install
+
+      - name: 构建应用
+        run: yarn build
+
+      - name: 运行E2E测试
+        run: yarn e2e:headless
+
+      - name: 上传E2E测试截图
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: ./frontend/cypress/screenshots
+
+      - name: 上传E2E测试视频
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: cypress-videos
+          path: ./frontend/cypress/videos
+
+  # 性能测试任务
+  performance-tests:
+    name: 性能测试
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ./frontend/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install
+
+      - name: 构建应用
+        run: yarn build
+
+      - name: 启动服务器
+        run: yarn start &
+        env:
+          PORT: 3000
+
+      - name: 等待服务器启动
+        run: sleep 10
+
+      - name: 运行性能测试
+        run: yarn test:performance
+
+      - name: 上传性能测试结果
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results
+          path: ./frontend/cypress/videos/performance-tests.cy.js.mp4
+
+  # 无障碍测试任务
+  accessibility-tests:
+    name: 无障碍测试
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ./frontend/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install
+
+      - name: 构建应用
+        run: yarn build
+
+      - name: 启动服务器
+        run: yarn start &
+        env:
+          PORT: 3000
+
+      - name: 等待服务器启动
+        run: sleep 10
+
+      - name: 运行无障碍测试
+        run: yarn test:a11y
+
+      - name: 生成无障碍测试报告
+        run: node scripts/generate-a11y-report.js
+
+      - name: 上传无障碍测试报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: accessibility-report
+          path: ./frontend/cypress/a11y-results
+
+      - name: 检查无障碍合规评分
+        run: |
+          SCORE=$(grep -o '"complianceScore":[^,]*' ./frontend/cypress/a11y-results/summary-report.json | cut -d':' -f2)
+          echo "无障碍合规评分: $SCORE"
+          if (( $(echo "$SCORE < 70" | bc -l) )); then
+            echo "无障碍合规评分低于70分：$SCORE"
+            exit 1
+          fi
+
+  # 用户流程测试任务
+  user-flow-tests:
+    name: 用户流程测试
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: ./frontend/yarn.lock
+
+      - name: 安装依赖
+        run: yarn install
+
+      - name: 构建应用
+        run: yarn build
+
+      - name: 启动服务器
+        run: yarn start &
+        env:
+          PORT: 3000
+
+      - name: 等待服务器启动
+        run: sleep 10
+
+      - name: 运行用户流程测试
+        run: yarn test:user-flow
+
+      - name: 上传用户流程测试视频
+        uses: actions/upload-artifact@v3
+        with:
+          name: user-flow-videos
+          path: ./frontend/cypress/videos/user-flow.cy.js.mp4
+
+  # 测试汇总任务
+  test-summary:
+    name: 测试结果汇总
+    needs:
+      [
+        unit-tests,
+        component-tests,
+        e2e-tests,
+        performance-tests,
+        accessibility-tests,
+        user-flow-tests,
+      ]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 下载测试覆盖率报告
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-report
+          path: ./coverage
+
+      - name: 下载无障碍测试报告
+        uses: actions/download-artifact@v3
+        with:
+          name: accessibility-report
+          path: ./a11y-results
+
+      - name: 生成测试摘要
+        run: |
+          echo "# 测试摘要" > test-summary.md
+          echo "" >> test-summary.md
+          echo "## 单元测试覆盖率" >> test-summary.md
+          if [ -f "./coverage/coverage-summary.json" ]; then
+            STATEMENTS=$(grep -A 4 "All files" ./coverage/coverage-summary.json | grep statements | awk -F: '{print $2}' | awk -F, '{print $1}')
+            STATEMENTS=${STATEMENTS//[[:blank:]]/}
+            BRANCHES=$(grep -A 4 "All files" ./coverage/coverage-summary.json | grep branches | awk -F: '{print $2}' | awk -F, '{print $1}')
+            BRANCHES=${BRANCHES//[[:blank:]]/}
+            FUNCTIONS=$(grep -A 4 "All files" ./coverage/coverage-summary.json | grep functions | awk -F: '{print $2}' | awk -F, '{print $1}')
+            FUNCTIONS=${FUNCTIONS//[[:blank:]]/}
+            LINES=$(grep -A 4 "All files" ./coverage/coverage-summary.json | grep lines | awk -F: '{print $2}' | awk -F, '{print $1}')
+            LINES=${LINES//[[:blank:]]/}
+            
+            echo "- 语句覆盖率: $STATEMENTS%" >> test-summary.md
+            echo "- 分支覆盖率: $BRANCHES%" >> test-summary.md
+            echo "- 函数覆盖率: $FUNCTIONS%" >> test-summary.md
+            echo "- 行覆盖率: $LINES%" >> test-summary.md
+          else
+            echo "未找到测试覆盖率报告" >> test-summary.md
+          fi
+
+          echo "" >> test-summary.md
+          echo "## 无障碍测试结果" >> test-summary.md
+          if [ -f "./a11y-results/summary-report.json" ]; then
+            SCORE=$(grep -o '"complianceScore":[^,]*' ./a11y-results/summary-report.json | cut -d':' -f2)
+            STATUS=$(grep -o '"status":"[^"]*' ./a11y-results/summary-report.json | cut -d'"' -f3)
+            VIOLATIONS=$(grep -o '"totalViolations":[^,]*' ./a11y-results/summary-report.json | cut -d':' -f2)
+            CRITICAL=$(grep -o '"criticalViolations":[^,]*' ./a11y-results/summary-report.json | cut -d':' -f2)
+            SERIOUS=$(grep -o '"seriousViolations":[^,]*' ./a11y-results/summary-report.json | cut -d':' -f2)
+            
+            echo "- 合规评分: $SCORE/100" >> test-summary.md
+            echo "- 状态: $STATUS" >> test-summary.md
+            echo "- 违规总数: $VIOLATIONS" >> test-summary.md
+            echo "- 严重违规: $CRITICAL" >> test-summary.md
+            echo "- 重要违规: $SERIOUS" >> test-summary.md
+          else
+            echo "未找到无障碍测试报告" >> test-summary.md
+          fi
+
+          echo "" >> test-summary.md
+          echo "## 测试结果汇总" >> test-summary.md
+          echo "- 单元测试: ${{ needs.unit-tests.result }}" >> test-summary.md
+          echo "- 组件测试: ${{ needs.component-tests.result }}" >> test-summary.md
+          echo "- 端到端测试: ${{ needs.e2e-tests.result }}" >> test-summary.md
+          echo "- 性能测试: ${{ needs.performance-tests.result }}" >> test-summary.md
+          echo "- 无障碍测试: ${{ needs.accessibility-tests.result }}" >> test-summary.md
+          echo "- 用户流程测试: ${{ needs.user-flow-tests.result }}" >> test-summary.md
+
+      - name: 发布测试摘要
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-summary
+          path: ./test-summary.md
+
+      - name: 添加PR评论
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('./test-summary.md', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });

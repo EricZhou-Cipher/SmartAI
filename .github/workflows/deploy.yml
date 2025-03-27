@@ -1,0 +1,227 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "部署环境 (development, staging, production)"
+        required: true
+        default: "development"
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "yarn"
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 运行测试
+        run: yarn test
+
+      - name: 构建前端
+        working-directory: ./frontend
+        run: |
+          yarn install --frozen-lockfile
+          yarn build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+
+      - name: 构建后端
+        working-directory: ./backend
+        run: |
+          yarn install --frozen-lockfile
+          yarn build
+        env:
+          NODE_ENV: production
+
+      - name: 压缩前端构建产物
+        working-directory: ./frontend
+        run: tar -czf ../frontend-build.tar.gz .next
+
+      - name: 压缩后端构建产物
+        working-directory: ./backend
+        run: tar -czf ../backend-build.tar.gz dist
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            frontend-build.tar.gz
+            backend-build.tar.gz
+
+  docker-build:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 下载构建产物
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      - name: 解压构建产物
+        run: |
+          mkdir -p frontend/.next
+          tar -xzf frontend-build.tar.gz -C frontend/.next
+          mkdir -p backend/dist
+          tar -xzf backend-build.tar.gz -C backend/dist
+
+      - name: 设置Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: 登录到DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: 提取元数据
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/smartai-frontend
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=ref,event=branch
+            type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'development' }}
+
+      - name: 构建并推送前端镜像
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/smartai-frontend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/smartai-frontend:buildcache,mode=max
+
+      - name: 提取后端元数据
+        id: meta-backend
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/smartai-backend
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=ref,event=branch
+            type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'development' }}
+
+      - name: 构建并推送后端镜像
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/smartai-backend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/smartai-backend:buildcache,mode=max
+
+  deploy:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'development' }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置SSH密钥
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: 添加部署服务器到已知主机
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 确定环境变量
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_ENV=development" >> $GITHUB_ENV
+          fi
+          echo "SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: 复制部署配置
+        run: |
+          scp -r ./docker-compose.yml ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/smartai/
+          scp -r ./nginx.conf ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/smartai/
+
+      - name: 部署新版本
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            cd ~/smartai
+            export DEPLOY_ENV=${{ env.DEPLOY_ENV }}
+            export SHA_SHORT=${{ env.SHA_SHORT }}
+            export FRONTEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/smartai-frontend:${{ env.SHA_SHORT }}
+            export BACKEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/smartai-backend:${{ env.SHA_SHORT }}
+            docker-compose pull
+            docker-compose up -d
+            docker system prune -f
+          '
+
+      - name: 健康检查
+        run: |
+          timeout 300 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' ${{ secrets.HEALTHCHECK_URL }})" != "200" ]]; do sleep 5; done'
+
+      - name: 发送Slack通知
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()
+
+  rollback:
+    needs: deploy
+    if: failure() && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 设置SSH密钥
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: 添加部署服务器到已知主机
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 回滚到上一个稳定版本
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            cd ~/smartai
+            docker-compose stop
+            docker-compose pull backend=${{ secrets.DOCKER_USERNAME }}/smartai-backend:stable
+            docker-compose pull frontend=${{ secrets.DOCKER_USERNAME }}/smartai-frontend:stable
+            docker-compose up -d
+          '
+
+      - name: 发送回滚通知
+        uses: 8398a7/action-slack@v3
+        with:
+          status: "failure"
+          fields: repo,message,commit,author,action,eventName,workflow
+          text: "🚨 部署失败，已回滚到上一个稳定版本"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

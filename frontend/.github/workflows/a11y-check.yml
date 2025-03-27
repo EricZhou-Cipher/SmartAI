@@ -1,0 +1,96 @@
+name: 无障碍检查
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'components/**'
+      - 'pages/**'
+      - 'styles/**'
+  workflow_dispatch:
+
+jobs:
+  a11y-audit:
+    name: 运行无障碍审计
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'yarn'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 运行无障碍审计
+        run: yarn a11y:check
+
+      - name: 保存报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: a11y-reports
+          path: a11y-reports
+          retention-days: 14
+
+      - name: 分析结果
+        id: a11y-analysis
+        run: |
+          CRITICAL=$(grep -o '"criticalIssues": [0-9]*' a11y-reports/a11y-report-*.json | grep -o '[0-9]*')
+          MAJOR=$(grep -o '"majorIssues": [0-9]*' a11y-reports/a11y-report-*.json | grep -o '[0-9]*')
+          MINOR=$(grep -o '"minorIssues": [0-9]*' a11y-reports/a11y-report-*.json | grep -o '[0-9]*')
+
+          echo "critical_issues=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "major_issues=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor_issues=$MINOR" >> $GITHUB_OUTPUT
+
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=⚠️ 发现 $CRITICAL 个严重的无障碍问题，必须修复" >> $GITHUB_OUTPUT
+          elif [ "$MAJOR" -gt 10 ]; then
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=⚠️ 发现 $MAJOR 个主要的无障碍问题，超过了允许的阈值(10)" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=✅ 无障碍检查通过！发现 $CRITICAL 个严重问题, $MAJOR 个主要问题, $MINOR 个次要问题" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 创建PR评论
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { status, message, critical_issues, major_issues, minor_issues } = process.env;
+
+            let body = `## 无障碍检查结果\n\n${message}\n\n`;
+            body += `- 严重问题: ${critical_issues}\n`;
+            body += `- 主要问题: ${major_issues}\n`;
+            body += `- 次要问题: ${minor_issues}\n\n`;
+
+            body += `[查看完整报告](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+        env:
+          status: ${{ steps.a11y-analysis.outputs.status }}
+          message: ${{ steps.a11y-analysis.outputs.message }}
+          critical_issues: ${{ steps.a11y-analysis.outputs.critical_issues }}
+          major_issues: ${{ steps.a11y-analysis.outputs.major_issues }}
+          minor_issues: ${{ steps.a11y-analysis.outputs.minor_issues }}
+
+      - name: 检查结果
+        run: |
+          if [ "${{ steps.a11y-analysis.outputs.status }}" == "failure" ]; then
+            echo "${{ steps.a11y-analysis.outputs.message }}"
+            exit 1
+          else
+            echo "${{ steps.a11y-analysis.outputs.message }}"
+          fi

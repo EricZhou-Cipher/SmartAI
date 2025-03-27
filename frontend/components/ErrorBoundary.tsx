@@ -1,9 +1,9 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
@@ -40,6 +40,11 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       error,
       errorInfo
     });
+    
+    // 如果提供了错误处理回调，则调用
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
   }
 
   render(): ReactNode {
@@ -77,32 +82,5 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return this.props.children;
   }
 }
-
-/**
- * 带有国际化支持的错误边界组件
- */
-export const TranslatedErrorBoundary: React.FC<ErrorBoundaryProps> = (props) => {
-  const { t } = useTranslation();
-  
-  return (
-    <ErrorBoundary
-      {...props}
-      fallback={
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-          <h2 className="text-lg font-medium text-red-800 mb-2">{t('common.error')}</h2>
-          <p className="text-sm text-red-600 mb-4">
-            {t('common.errorOccurred')}
-          </p>
-          <button
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-            onClick={() => window.location.reload()}
-          >
-            {t('common.refresh')}
-          </button>
-        </div>
-      }
-    />
-  );
-};
 
 export default ErrorBoundary; 

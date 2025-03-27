@@ -2,6 +2,8 @@ import { IEventRecord } from '../models/EventRecord';
 import { EventRecord } from '../models/EventRecord';
 import { cache } from '../redis';
 import { createLogger } from '../../utils/logger';
+import { NormalizedEvent } from '../../types/events';
+import { Database } from '../Database';
 
 const logger = createLogger({
   level: 'info',
@@ -131,6 +133,165 @@ export class EventDAO {
     } catch (error) {
       logger.error('Find events by address error', { address, limit, error });
       throw error;
+    }
+  }
+
+  /**
+   * 根据地址查找事件记录
+   * @param address 地址
+   * @param limit 限制条数
+   * @returns 事件记录数组
+   */
+  static async findByAddress(address: string, limit: number = 10): Promise<IEventRecord[]> {
+    try {
+      const db = await Database.getConnection();
+      const collection = db.collection('events');
+      
+      const events = await collection
+        .find({
+          $or: [
+            { 'event.from': address },
+            { 'event.to': address }
+          ]
+        })
+        .sort({ 'event.timestamp': -1 })
+        .limit(limit)
+        .toArray();
+      
+      return events as IEventRecord[];
+    } catch (error) {
+      logger.error('查询事件记录失败', {
+        address,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+  
+  /**
+   * 根据地址和时间范围查找事件记录
+   * @param address 地址
+   * @param startTime 开始时间（UNIX时间戳）
+   * @param endTime 结束时间（UNIX时间戳）
+   * @param limit 限制条数
+   * @returns 事件记录数组
+   */
+  static async findByAddressAndTimeRange(
+    address: string,
+    startTime: number,
+    endTime: number,
+    limit: number = 50
+  ): Promise<IEventRecord[]> {
+    try {
+      const db = await Database.getConnection();
+      const collection = db.collection('events');
+      
+      const events = await collection
+        .find({
+          $or: [
+            { 'event.from': address },
+            { 'event.to': address }
+          ],
+          'event.timestamp': {
+            $gte: startTime,
+            $lte: endTime
+          }
+        })
+        .sort({ 'event.timestamp': -1 })
+        .limit(limit)
+        .toArray();
+      
+      return events as IEventRecord[];
+    } catch (error) {
+      logger.error('查询事件时间范围记录失败', {
+        address,
+        startTime,
+        endTime,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+  
+  /**
+   * 保存事件记录
+   * @param event 事件
+   * @returns 保存结果
+   */
+  static async save(event: NormalizedEvent): Promise<IEventRecord | null> {
+    try {
+      const db = await Database.getConnection();
+      const collection = db.collection('events');
+      
+      const eventRecord: IEventRecord = {
+        id: event.transactionHash,
+        event,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await collection.insertOne(eventRecord);
+      
+      return eventRecord;
+    } catch (error) {
+      logger.error('保存事件记录失败', {
+        transactionHash: event.transactionHash,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+  
+  /**
+   * 查找重复事件
+   * @param transactionHash 交易哈希
+   * @returns 事件记录或 null
+   */
+  static async findByTransactionHash(transactionHash: string): Promise<IEventRecord | null> {
+    try {
+      const db = await Database.getConnection();
+      const collection = db.collection('events');
+      
+      const event = await collection.findOne({ id: transactionHash });
+      
+      return event as IEventRecord | null;
+    } catch (error) {
+      logger.error('查询事件记录失败', {
+        transactionHash,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+  
+  /**
+   * 批量保存事件记录
+   * @param events 事件数组
+   * @returns 成功数量
+   */
+  static async bulkSave(events: NormalizedEvent[]): Promise<number> {
+    if (events.length === 0) return 0;
+    
+    try {
+      const db = await Database.getConnection();
+      const collection = db.collection('events');
+      
+      const eventRecords = events.map(event => ({
+        id: event.transactionHash,
+        event,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }));
+      
+      const result = await collection.insertMany(eventRecords, { ordered: false });
+      
+      return result.insertedCount;
+    } catch (error) {
+      logger.error('批量保存事件记录失败', {
+        eventsCount: events.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return 0;
     }
   }
 }

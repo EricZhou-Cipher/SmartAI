@@ -7,6 +7,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { createServer } from 'http';
 import path from 'path';
+import smartMoneyRoutes from './routes/smartMoneyRoutes';
+import { SmartMoneyTracker } from './core/SmartMoneyTracker';
 
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -65,6 +67,9 @@ const connectRedis = async () => {
   }
 };
 
+// API路由
+app.use('/api/smart-money', smartMoneyRoutes);
+
 // 基本路由
 app.get('/', (req, res) => {
   res.json({ message: 'ChainIntelAI 后端服务运行正常' });
@@ -108,6 +113,10 @@ app.get('/api/status', async (req, res) => {
 const startServer = async () => {
   await connectMongoDB();
   const redis = await connectRedis();
+  
+  // 初始化SmartMoneyTracker
+  // 使用mongoose连接作为knex参数
+  SmartMoneyTracker.init(mongoose.connection.db);
   
   const PORT = process.env.PORT || 3001;
   const server = createServer(app);

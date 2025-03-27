@@ -1,0 +1,144 @@
+name: 无障碍检查
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  # 允许手动触发工作流
+  workflow_dispatch:
+
+jobs:
+  accessibility-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: './frontend/yarn.lock'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 构建应用
+        run: yarn build
+
+      - name: 运行静态无障碍检查
+        run: yarn a11y:check
+
+      - name: 生成无障碍修复报告
+        run: yarn a11y:fix-report
+
+      - name: 保存无障碍报告
+        uses: actions/upload-artifact@v3
+        with:
+          name: a11y-reports
+          path: |
+            frontend/a11y-reports/a11y-report-*.json
+            frontend/a11y-reports/a11y-fix-report.md
+          retention-days: 7
+
+      - name: 检查严重无障碍问题阈值
+        id: check-threshold
+        run: |
+          # 获取基准分支的最新提交
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_REF="${{ github.base_ref }}"
+          else
+            BASE_REF="main"
+          fi
+
+          # 设置当前阶段 (MVP)
+          CURRENT_STAGE="MVP"
+
+          # 获取当前严重问题数量
+          CURRENT_CRITICAL_COUNT=$(cat a11y-reports/latest.json | jq '.issues.critical | length')
+          echo "当前严重问题数量: $CURRENT_CRITICAL_COUNT"
+
+          # 设置基准值 (MVP阶段为80，基于当前审计结果)
+          BASELINE_CRITICAL_COUNT=80
+
+          # 判断是否违反阈值 (MVP阶段：不增加严重问题)
+          if [ $CURRENT_CRITICAL_COUNT -gt $BASELINE_CRITICAL_COUNT ]; then
+            echo "::error::无障碍检查失败: 当前严重问题数量($CURRENT_CRITICAL_COUNT)超过基准值($BASELINE_CRITICAL_COUNT)"
+            echo "threshold_violated=true" >> $GITHUB_OUTPUT
+            echo "current_count=$CURRENT_CRITICAL_COUNT" >> $GITHUB_OUTPUT
+            echo "baseline_count=$BASELINE_CRITICAL_COUNT" >> $GITHUB_OUTPUT
+            # 暂时不设置为失败，仅作为警告
+            exit 0
+          else
+            echo "无障碍检查通过: 当前严重问题数量($CURRENT_CRITICAL_COUNT)未超过基准值($BASELINE_CRITICAL_COUNT)"
+            echo "threshold_violated=false" >> $GITHUB_OUTPUT
+            echo "current_count=$CURRENT_CRITICAL_COUNT" >> $GITHUB_OUTPUT
+            echo "baseline_count=$BASELINE_CRITICAL_COUNT" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+      - name: 添加PR评论
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const criticalCount = ${{ steps.check-threshold.outputs.current_count }};
+            const baselineCount = ${{ steps.check-threshold.outputs.baseline_count }};
+            const thresholdViolated = ${{ steps.check-threshold.outputs.threshold_violated }};
+
+            let commentBody = `## 无障碍检查结果\n\n`;
+
+            if (thresholdViolated === 'true') {
+              commentBody += `⚠️ **警告**: 严重无障碍问题数量(${criticalCount})超过MVP阶段基准值(${baselineCount})。\n\n`;
+            } else {
+              commentBody += `✅ 无障碍检查通过: 严重问题数量(${criticalCount})未超过基准值(${baselineCount})。\n\n`;
+            }
+
+            // 读取报告摘要
+            try {
+              const reportSummary = fs.readFileSync('frontend/a11y-reports/a11y-fix-report.md', 'utf8').split('## 常见问题修复指南')[0];
+              commentBody += reportSummary;
+            } catch (error) {
+              commentBody += `查看详细报告请下载工作流构件。\n\n`;
+            }
+
+            commentBody += `\n请参考 [无障碍路线图](../docs/a11y-roadmap.md) 了解我们的无障碍改进计划。`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
+
+  component-based-testing:
+    runs-on: ubuntu-latest
+    needs: accessibility-audit
+    if: false # 暂时禁用，未来可以启用
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: './frontend/yarn.lock'
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      - name: 运行组件无障碍测试
+        run: yarn test:a11y

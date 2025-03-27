@@ -210,4 +210,89 @@ export function idleLoad<T extends (...args: any[]) => any>(
       }
     });
   };
+}
+
+/**
+ * 测量性能 - 用于测量组件渲染性能
+ * 适用场景：测量组件渲染时间、FPS等
+ * 
+ * @param callback 每次测量后的回调函数
+ * @returns 包含开始、结束和取消测量的方法
+ */
+export function measurePerformance(callback: (metrics: {
+  fps: number;
+  renderTime: number;
+  memory?: {
+    usedJSHeapSize: number;
+    totalJSHeapSize: number;
+  }
+}) => void) {
+  let rafId: number | null = null;
+  let frameCount = 0;
+  let lastTime = performance.now();
+  let lastRenderTime = 0;
+  
+  const measure = () => {
+    const now = performance.now();
+    frameCount++;
+    
+    // 每秒更新一次性能指标
+    if (now - lastTime >= 1000) {
+      const fps = Math.round((frameCount * 1000) / (now - lastTime));
+      
+      // 构建性能指标对象
+      const metrics: {
+        fps: number;
+        renderTime: number;
+        memory?: {
+          usedJSHeapSize: number;
+          totalJSHeapSize: number;
+        }
+      } = {
+        fps,
+        renderTime: lastRenderTime
+      };
+      
+      // 如果支持内存性能API，添加内存使用情况
+      if (window.performance && (performance as any).memory) {
+        metrics.memory = {
+          usedJSHeapSize: (performance as any).memory.usedJSHeapSize,
+          totalJSHeapSize: (performance as any).memory.totalJSHeapSize
+        };
+      }
+      
+      // 调用回调函数
+      callback(metrics);
+      
+      // 重置计数器
+      frameCount = 0;
+      lastTime = now;
+    }
+    
+    rafId = requestAnimationFrame(measure);
+  };
+  
+  // 开始测量
+  const start = () => {
+    if (rafId === null) {
+      lastTime = performance.now();
+      frameCount = 0;
+      rafId = requestAnimationFrame(measure);
+    }
+  };
+  
+  // 结束测量
+  const stop = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  };
+  
+  // 记录渲染时间
+  const recordRenderTime = (renderTime: number) => {
+    lastRenderTime = renderTime;
+  };
+  
+  return { start, stop, recordRenderTime };
 } 
