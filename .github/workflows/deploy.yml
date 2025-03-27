@@ -31,8 +31,22 @@ jobs:
       - name: 安装依赖
         run: yarn install --frozen-lockfile
 
+      - name: 确保Jest已安装
+        run: |
+          yarn add --dev jest @types/jest babel-jest
+          echo "检查Jest是否已安装:"
+          yarn list jest || true
+          echo "安装的Jest版本:"
+          npx jest --version || echo "无法获取Jest版本"
+
       - name: 运行测试
-        run: yarn test || echo "跳过测试"
+        run: |
+          if [ -f "jest.config.js" ]; then
+            yarn test || echo "测试失败但继续执行"
+          else
+            echo "没有找到Jest配置，使用npx运行Jest"
+            npx jest || echo "测试失败但继续执行"
+          fi
 
       - name: 构建前端
         working-directory: ./frontend
@@ -70,7 +84,7 @@ jobs:
   docker-build:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_dispatch' && secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != ''
+    if: ${{ github.event_name != 'workflow_dispatch' && secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -136,7 +150,7 @@ jobs:
 
   deploy:
     needs: [build-and-test]
-    if: github.event_name != 'workflow_dispatch' && secrets.DEPLOY_SSH_KEY != ''
+    if: ${{ github.event_name != 'workflow_dispatch' && secrets.DEPLOY_SSH_KEY != '' }}
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'development' }}
     steps:
@@ -186,7 +200,7 @@ jobs:
           echo "SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: 本地开发环境部署
-        if: env.DEPLOY_HOST == 'localhost' || env.DEPLOY_HOST == '127.0.0.1'
+        if: ${{ env.DEPLOY_HOST == 'localhost' || env.DEPLOY_HOST == '127.0.0.1' }}
         run: |
           echo "这是本地开发环境部署模拟..."
           echo "在实际部署中，这里会将文件传输到远程服务器"
@@ -198,7 +212,7 @@ jobs:
           echo "✅ 模拟部署完成"
 
       - name: 远程服务器部署
-        if: env.DEPLOY_HOST != 'localhost' && env.DEPLOY_HOST != '127.0.0.1'
+        if: ${{ env.DEPLOY_HOST != 'localhost' && env.DEPLOY_HOST != '127.0.0.1' }}
         run: |
           scp -r ./docker-compose.yml ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:~/smartai/
           scp -r ./nginx.conf ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:~/smartai/
@@ -221,7 +235,7 @@ jobs:
           # timeout 300 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' ${{ secrets.HEALTHCHECK_URL != '' && secrets.HEALTHCHECK_URL || 'http://localhost:3000/health' }})" != "200" ]]; do sleep 5; done'
 
       - name: 发送Slack通知
-        if: secrets.SLACK_WEBHOOK != ''
+        if: ${{ secrets.SLACK_WEBHOOK != '' }}
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
@@ -231,7 +245,7 @@ jobs:
 
   rollback:
     needs: deploy
-    if: failure() && github.event_name != 'workflow_dispatch' && secrets.DEPLOY_SSH_KEY != ''
+    if: ${{ failure() && github.event_name != 'workflow_dispatch' && secrets.DEPLOY_SSH_KEY != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: 验证密钥
@@ -267,14 +281,14 @@ jobs:
           ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
       - name: 模拟回滚
-        if: env.DEPLOY_HOST == 'localhost' || env.DEPLOY_HOST == '127.0.0.1'
+        if: ${{ env.DEPLOY_HOST == 'localhost' || env.DEPLOY_HOST == '127.0.0.1' }}
         run: |
           echo "这是回滚操作的模拟..."
           echo "在实际部署中，这里会将服务回滚到上一个稳定版本"
           echo "✅ 模拟回滚完成"
 
       - name: 回滚到上一个稳定版本
-        if: env.DEPLOY_HOST != 'localhost' && env.DEPLOY_HOST != '127.0.0.1'
+        if: ${{ env.DEPLOY_HOST != 'localhost' && env.DEPLOY_HOST != '127.0.0.1' }}
         run: |
           ssh ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} '
             cd ~/smartai
@@ -283,7 +297,7 @@ jobs:
           '
 
       - name: 发送回滚通知
-        if: secrets.SLACK_WEBHOOK != ''
+        if: ${{ secrets.SLACK_WEBHOOK != '' }}
         uses: 8398a7/action-slack@v3
         with:
           status: "failure"
