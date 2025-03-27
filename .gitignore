@@ -1,58 +1,70 @@
 # Dependencies
-/node_modules
-**/node_modules
-/.pnp
+node_modules/
+.pnp/
 .pnp.js
 
 # Testing
-/coverage
-/.nyc_output
+/coverage/
+.nyc_output/
 
-# Production
-/build
-/dist
+# Production build files
+/build/
+/dist/
+/.next/
+/out/
 
-# Misc
+# Development environment
 .DS_Store
+*.pem
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.production
+.venv/
+venv/
+ENV/
+env/
+*.pyc
+__pycache__/
+.pytest_cache/
 
-# Logs
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs
 *.log
 
-# IDE
-/.idea
-/.vscode
+# IDE specific files
+.idea/
+.vscode/
 *.swp
 *.swo
+.vs/
 
-# TypeScript
-*.tsbuildinfo
-
-# Cache
+# Cache directories
+.cache/
+.temp/
+.tmp/
 .eslintcache
-.cache
 
-# Hardhat
-cache/
-artifacts/
-typechain/
-typechain-types/
+# Python virtual environments
+**/venv*/
+**/__pycache__/
 
-# Frontend
-.next/
-frontend/.next/
-frontend/build/
-frontend/dist/
+# Large binary files
+*.pickle
+*.bin
+*.h5
+*.parquet
+*.csv
+*.sqlite
+*.db
 
-# Backend
-backend/dist/
-backend/build/
+# Frontend caches
+.sass-cache/
+.parcel-cache/
+
+# Temporary directories that might contain sensitive data
+/tmp/
+/temp/
