@@ -1,6 +1,6 @@
-name: ChainIntel AI CI/CD
+name: SmartAI CI/CD
 
-# 此工作流是主要的 CI/CD 流程，用于测试、构建和部署 ChainIntel AI 项目
+# 此工作流是主要的 CI/CD 流程，用于测试、构建和部署 SmartAI 项目
 # 其他工作流已设置为仅手动触发，以避免重复运行
 
 on:
@@ -62,7 +62,7 @@ jobs:
         env:
           NODE_ENV: test
           JWT_SECRET: test_secret
-          MONGO_URI: mongodb://localhost:27017/chainintelai_test
+          MONGO_URI: mongodb://localhost:27017/smartai_test
 
       - name: 📤 上传覆盖率报告
         uses: actions/upload-artifact@v4

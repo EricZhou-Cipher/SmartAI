@@ -60,7 +60,7 @@ jobs:
         run: tar -czf ../backend-build.tar.gz dist
 
       - name: 上传构建产物
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: 下载构建产物
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-artifacts
 
@@ -141,10 +141,19 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v3
 
+      - name: 检查SSH密钥是否配置
+        run: |
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
+            echo "错误：DEPLOY_SSH_KEY没有配置。请在仓库的Secrets中添加此密钥。"
+            echo "您可以通过 Settings > Secrets and variables > Actions > New repository secret 来添加这个密钥"
+            exit 1
+          fi
+
       - name: 设置SSH密钥
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          log-public-key: true
 
       - name: 添加部署服务器到已知主机
         run: |
@@ -197,10 +206,19 @@ jobs:
     if: failure() && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - name: 检查SSH密钥是否配置
+        run: |
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
+            echo "错误：DEPLOY_SSH_KEY没有配置。请在仓库的Secrets中添加此密钥。"
+            echo "您可以通过 Settings > Secrets and variables > Actions > New repository secret 来添加这个密钥"
+            exit 1
+          fi
+
       - name: 设置SSH密钥
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          log-public-key: true
 
       - name: 添加部署服务器到已知主机
         run: |
